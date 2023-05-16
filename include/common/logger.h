@@ -41,6 +41,9 @@ void logger_init(const std::string &logger_name, spdlog::level::level_enum log_l
 } // end nos
 
 
+#include <fmt/core.h>
+#include <fmt/format.h>
+
 // 提供公共函数. 使用全局的命名空间
 // namespace nos
 // {
