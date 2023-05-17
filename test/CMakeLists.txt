@@ -1,5 +1,5 @@
 
-link_libraries(spdlog::spdlog ${LIBUV} noscommon)
+link_libraries(spdlog::spdlog ${LIB_UV} noscommon)
 
 add_executable(test_libuv test_libuv.cpp)
 
