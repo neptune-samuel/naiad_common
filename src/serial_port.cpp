@@ -4,6 +4,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/epoll.h>
 
 #include <string>
 #include <thread>
@@ -11,6 +12,9 @@
 
 #include <common/logger.h>
 #include <common/serial_port.h>
+#include <common/sys_time.h>
+
+#define ASYNC_READ_WITH_EPOLL  1
 
 
 namespace nos 
@@ -126,6 +130,55 @@ static int to_sys_baudrate(int baudrate)
     return 0;
 }
 
+#if ASYNC_READ_WITH_EPOLL
+
+static int read_with_epoll(int fd, int epoll_fd, void *buf, int size, int timeout)
+{
+    if (timeout <= 0)
+    {
+        return read(fd, buf, size);
+    }
+    else 
+    {     
+        #define MAX_EVENTS 10        
+        struct epoll_event ev, events[MAX_EVENTS];
+        int64_t expired = nos::system::uptime() + timeout;
+        int offset = 0;
+
+        while ((offset < size) && (timeout > 0))
+        {
+            int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, timeout);
+            if (nfds < 0)
+            {
+                wlog("epoll wait() error");
+                return -1;
+            }
+
+            for (int i = 0; i < nfds; ++ i)
+            {
+                if (events[i].data.fd == fd)
+                {
+                    int ret = ::read(events[i].data.fd, (unsigned char *)buf + offset, size - offset);
+                    if (ret < 0)
+                    {
+                        return ret;
+                    }
+                    else if (ret > 0)
+                    {
+                        offset += ret;
+                    }
+                }                
+            }
+
+            // 
+            timeout = expired - nos::system::uptime();
+        }
+
+        return offset;
+    }
+}
+
+#endif // ASYNC_READ_WITH_EPOLL
 
 /**
  * @brief 使用串口接收，可以设定等待时间
@@ -136,16 +189,14 @@ static int to_sys_baudrate(int baudrate)
  * @param timeout ms
  * @return int 
  */
-
-static int read_with_timeout(int fd, void *buf, int size, int timeout)
+static int read_wiih_select(int fd, void *buf, int size, int timeout)
 {
     if (timeout <= 0)
     {
         return read(fd, buf, size);
     }
     else 
-    {
-        // with timer 
+    {      
         struct timeval tv;
         int offset = 0;
         int ret = 0;
@@ -189,7 +240,6 @@ static int read_with_timeout(int fd, void *buf, int size, int timeout)
                 break;
             }
         }
-
         return offset;
     }
 }
@@ -502,7 +552,7 @@ int SerialPort::read(void *buf, int size, int timeout)
         return -1;
     }
 
-    int rx_size = read_with_timeout(fd_, buf, size, timeout);
+    int rx_size = read_wiih_select(fd_, buf, size, timeout);
 
     if (rx_size > 0)
     {
@@ -594,11 +644,36 @@ bool SerialPort::async_read_start(int queue_size)
         this->rx_thread_running_ = true;
         uint8_t buf[1024];
 
+        #if ASYNC_READ_WITH_EPOLL
+        int epoll_fd = epoll_create1(0);
+        if (epoll_fd < 0)
+        {
+            elog("epoll_create1() failed");
+            return ;
+        }
+
+        struct epoll_event ev;
+        ev.events = EPOLLIN;
+        ev.data.fd = fd_;
+
+        if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd_, &ev) < 0)
+        {
+            elog("epoll_ctl() failed");
+
+            ::close(epoll_fd);
+            return ;
+        }
+
+        #endif // ASYNC_READ_WITH_EPOLL
+
         while(this->rx_thread_running_)
         {            
             // 将数据放入队列中
-            int rx_size = read_with_timeout(fd_, buf, sizeof(buf), 10);
-
+            #if ASYNC_READ_WITH_EPOLL
+            int rx_size = read_with_epoll(fd_, epoll_fd, buf, sizeof(buf), 10);
+            #else 
+            int rx_size = read_with_select(fd_, buf, sizeof(buf), 10);
+            #endif 
             if (rx_size > 0)
             {                
                 statistics_.rx_bytes += rx_size;
@@ -639,6 +714,10 @@ bool SerialPort::async_read_start(int queue_size)
 
             //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         }
+
+        #if ASYNC_READ_WITH_EPOLL
+        ::close(epoll_fd);
+        #endif 
     });
 
     return true;
