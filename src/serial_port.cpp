@@ -14,7 +14,7 @@
 #include <common/serial_port.h>
 #include <common/sys_time.h>
 
-#define ASYNC_READ_WITH_EPOLL  1
+#define ASYNC_READ_WITH_EPOLL  0
 
 
 namespace nos 
@@ -189,11 +189,31 @@ static int read_with_epoll(int fd, int epoll_fd, void *buf, int size, int timeou
  * @param timeout ms
  * @return int 
  */
-static int read_wiih_select(int fd, void *buf, int size, int timeout)
+static int read_with_select(int fd, void *buf, int size, int timeout)
 {
     if (timeout <= 0)
     {
-        return read(fd, buf, size);
+        int ret = ::read(fd, buf, size);
+
+        if (ret < 0)
+        {
+            if (errno == EAGAIN)
+            {
+                ret = 0;
+            }
+
+            trace("read() errno = {}", errno);
+        }
+        else 
+        {
+            if (ret == 0)
+            {
+                trace("read()-> errno = {}", errno);
+            }
+            
+        }
+
+        return ret;
     }
     else 
     {      
@@ -552,7 +572,7 @@ int SerialPort::read(void *buf, int size, int timeout)
         return -1;
     }
 
-    int rx_size = read_wiih_select(fd_, buf, size, timeout);
+    int rx_size = read_with_select(fd_, buf, size, timeout);
 
     if (rx_size > 0)
     {
