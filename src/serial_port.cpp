@@ -1,5 +1,17 @@
 
-
+/**
+ * @file serial_port.cpp
+ * @author Liu Chuansen (samule@neptune-robotics.com)
+ * @brief 串口底层驱动封装
+ * @version 0.1
+ * @date 2023-05-17
+ * 
+ * @copyright Copyright (c) 2023
+ * 
+ * @todo 
+ *  - 在linux下无法检测串口被拔出的情况
+ * 
+ */
 #include <fcntl.h>
 #include <termios.h>
 #include <unistd.h>
@@ -136,7 +148,18 @@ static int read_with_epoll(int fd, int epoll_fd, void *buf, int size, int timeou
 {
     if (timeout <= 0)
     {
-        return read(fd, buf, size);
+        int ret = ::read(fd, buf, size);
+
+        if (ret < 0)
+        {
+            if (errno == EAGAIN)
+            {
+                ret = 0;
+            }
+            //trace("read() errno = {}", errno);
+        }
+
+        return ret;
     }
     else 
     {     
@@ -201,16 +224,7 @@ static int read_with_select(int fd, void *buf, int size, int timeout)
             {
                 ret = 0;
             }
-
-            trace("read() errno = {}", errno);
-        }
-        else 
-        {
-            if (ret == 0)
-            {
-                trace("read()-> errno = {}", errno);
-            }
-            
+            //trace("read() errno = {}", errno);
         }
 
         return ret;

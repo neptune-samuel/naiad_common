@@ -1,15 +1,17 @@
 
 ### libraries
 
-- libspdlog 1.11.0
+- [libspdlog](https://github.com/gabime/spdlog.git)  (1.11.0)
 
 sudo apt install libspdlog-dev
 
-- libuv 
+- [libuv](https://github.com/libuv/libuv.git) (1.44.2)  
 
 source code install 
 
-- libfmt (8.1.1only)
+- [libfmt](https://github.com/fmtlib/fmt.git) (8.1.1only)
+
+
 
 source code install
 

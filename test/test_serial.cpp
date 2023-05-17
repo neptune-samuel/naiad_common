@@ -13,6 +13,8 @@
 
 #define APP_NAME  "test-serial"
 
+#define SIMPLE_READ  0
+#define ASYNC_READ   1
 
 int main(int argc, const char *argv[])
 {
@@ -38,6 +40,7 @@ int main(int argc, const char *argv[])
 
     if (port.is_opened())
     {
+        #if SIMPLE_READ
         while (true)
         {
             unsigned char buf[1024];
@@ -47,9 +50,10 @@ int main(int argc, const char *argv[])
             {
                 port.write(buf, read_size);
             }
-            else if (read_size < 0)
+
+            if (read_size < 0)
             {
-                elog("read failed, ret = {}", read_size);
+                elog("read failed");
             }
             
             nos::system::mdelay(1);
@@ -62,50 +66,59 @@ int main(int argc, const char *argv[])
         //         port->write("Hello world", 11);                
         //     });
 
+        #endif 
 
-        //port.async_read_start();
+        #if ASYNC_READ
+        port.async_read_start();
 
 
-        // timer.start(2000, 1000, &port, [](nos::libuv::Timer &timer, void *data)
-        //     {
-        //         auto port = static_cast<nos::driver::SerialPort *>(data);
+        timer.start(2000, 1000, &port, [](nos::libuv::Timer &timer, void *data)
+            {
+                auto port = static_cast<nos::driver::SerialPort *>(data);
 
-        //         //timer.stop();
-        //         nos::driver::SerialStatistics stats = { 0 };
-        //         port->get_statistics(stats);
+                //timer.stop();
+                nos::driver::SerialStatistics stats = { 0 };
+                port->get_statistics(stats);
 
-        //         ilog("fifo: {} peak {}", stats.fifo_size, stats.fifo_peak_size);
-        //         ilog("tx  : {} ", stats.tx_bytes);
-        //         ilog("rx  : {} drop {}", stats.rx_bytes, stats.rx_drop_bytes);
+                ilog("fifo: {} peak {}", stats.fifo_size, stats.fifo_peak_size);
+                ilog("tx  : {} ", stats.tx_bytes);
+                ilog("rx  : {} drop {}", stats.rx_bytes, stats.rx_drop_bytes);
 
-        //         //port->async_read_stop();                
-        //     });
+                //port->async_read_stop();                
+            });
+
+        #endif 
     }
 
+    #if ASYNC_READ
     // 创建一个接收线程，从fifo中接收数据，并返回指定的值
-    // std::thread test = std::thread([&port](){
+    std::thread test = std::thread([&port](){
 
-    //     uint8_t buf[256];
-    //     while(port.is_opened())
-    //     {
-    //         int size = port.async_read(buf, sizeof(buf));
-    //         if (size > 0)
-    //         {
-    //             //ilog("rx {}", size);
-    //             port.write(buf, size);
-    //         }  
+        uint8_t buf[256];
+        while(port.is_opened())
+        {
+            int size = port.async_read(buf, sizeof(buf));
+            if (size > 0)
+            {
+                //ilog("rx {}", size);
+                port.write(buf, size);
+            }  
 
-    //         nos::system::mdelay(10);              
-    //     }
+            nos::system::mdelay(10);              
+        }
 
-    //     ilog("test thread exit");
-    // });
+        ilog("test thread exit");
+    });
+
+    #endif 
 
     loop.spin();
     // 关闭串口
     port.close();
-    // 
-    //test.join();
+    
+    #if ASYNC_READ
+    test.join();
+    #endif 
 
     wlog(APP_NAME " exited");
 
