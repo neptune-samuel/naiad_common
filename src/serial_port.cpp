@@ -22,111 +22,65 @@ namespace driver
 
 /*
 struct termios 是 Linux 下串口编程中的一个结构体，用于描述终端的属性。它包含以下成员：
-
 1. tcflag_t c_iflag：输入模式标志，用于设置终端输入模式。
-
 2. tcflag_t c_oflag：输出模式标志，用于设置终端输出模式。
-
 3. tcflag_t c_cflag：控制模式标志，用于设置终端控制模式。
-
 4. tcflag_t c_lflag：本地模式标志，用于设置终端本地模式。
-
 5. cc_t c_cc[NCCS]：控制字符数组，用于设置终端控制字符。
-
 其中，c_iflag、c_oflag、c_cflag 和 c_lflag 都是位标志，用于设置终端的各种属性。cc_t 类型是一个字符类型，c_cc 数组中存储了一些特殊字符，如终端输入字符的起始字符、结束字符、删除字符等等。
-
 具体来说，这些成员的含义如下：
 
 1. c_iflag：输入模式标志。包含以下标志：
-
-- IGNBRK：忽略 BREAK 信号。
-
-- BRKINT：将 BREAK 信号转换为中断信号，并且在输入队列中丢弃输入数据。
-
-- IGNPAR：忽略奇偶校验错误的输入字节。
-
-- PARMRK：在输入队列中添加奇偶校验错误的标记。
-
-- INPCK：启用奇偶校验。
-
-- ISTRIP：去除输入字节的第 8 位。
-
-- INLCR：将输入的 NL（换行符）转换为 CR（回车符）。
-
-- IGNCR：忽略输入的 CR（回车符）。
-
-- ICRNL：将输入的 CR（回车符）转换为 NL（换行符）。
-
-- IXON：启用输出流控制。
-
-- IXOFF：启用输入流控制。
+ IGNBRK：忽略 BREAK 信号。
+ BRKINT：将 BREAK 信号转换为中断信号，并且在输入队列中丢弃输入数据。
+ IGNPAR：忽略奇偶校验错误的输入字节。
+ PARMRK：在输入队列中添加奇偶校验错误的标记。
+ INPCK：启用奇偶校验。
+ ISTRIP：去除输入字节的第 8 位。
+ INLCR：将输入的 NL（换行符）转换为 CR（回车符）。
+ IGNCR：忽略输入的 CR（回车符）。
+ ICRNL：将输入的 CR（回车符）转换为 NL（换行符）。
+ IXON：启用输出流控制。
+ IXOFF：启用输入流控制。
 
 2. c_oflag：输出模式标志。包含以下标志：
-
-- OPOST：启用输出处理。
-
-- ONLCR：将输出的 NL（换行符）转换为 CR（回车符）和 NL（换行符）。
+ OPOST：启用输出处理。
+ ONLCR：将输出的 NL（换行符）转换为 CR（回车符）和 NL（换行符）。
 
 3. c_cflag：控制模式标志。包含以下标志：
-
-- CSIZE：字符大小掩码。
-
-- PARENB：启用奇偶校验。
-
-- PARODD：启用奇偶校验并使用奇校验。
-
-- CSTOPB：使用两个停止位。
-
-- CRTSCTS：启用硬件流控制。
+ CSIZE：字符大小掩码。
+ PARENB：启用奇偶校验。
+ PARODD：启用奇偶校验并使用奇校验。
+ CSTOPB：使用两个停止位。
+ CRTSCTS：启用硬件流控制。
 
 4. c_lflag：本地模式标志。包含以下标志：
-
-- ICANON：启用规范模式。
-
-- ECHO：启用回显。
-
-- ECHOE：启用 ERASE 字符。
-
-- ISIG：启用信号。
-
-- IEXTEN：启用扩展输入处理。
+ ICANON：启用规范模式。
+ ECHO：启用回显。
+ ECHOE：启用 ERASE 字符。
+ ISIG：启用信号。
+ IEXTEN：启用扩展输入处理。
 
 5. c_cc[NCCS]：控制字符数组。包含以下控制字符：
-
-- VINTR：中断字符。
-
-- VQUIT：退出字符。
-
-- VERASE：擦除字符。
-
-- VKILL：删除字符。
-
-- VEOF：文件结束字符。
-
-- VTIME：非规范模式读取时的超时时间。
-
-- VMIN：非规范模式读取时的最小字符数。
-
-- VSWTC：启用字符控制。
-
-- VSTART：输出流控制字符。
-
-- VSTOP：输出流控制字符。
-
-- VSUSP：挂起字符。
-
-- VEOL：行结束字符。
-
-- VREPRINT：重新打印字符。
-
-- VDISCARD：丢弃字符。
-
-- VWERASE：字擦除字符。
-
-- VLNEXT：下一个字符。
-
-- VEOL2：第二行结束字符。
+ VINTR：中断字符。
+ VQUIT：退出字符。
+ VERASE：擦除字符。
+ VKILL：删除字符。
+ VEOF：文件结束字符。
+ VTIME：非规范模式读取时的超时时间。
+ VMIN：非规范模式读取时的最小字符数。
+ VSWTC：启用字符控制。
+ VSTART：输出流控制字符。
+ VSTOP：输出流控制字符。
+ VSUSP：挂起字符。
+ VEOL：行结束字符。
+ VREPRINT：重新打印字符。
+ VDISCARD：丢弃字符。
+ VWERASE：字擦除字符。
+ VLNEXT：下一个字符。
+ VEOL2：第二行结束字符。
 */
+
 
 
 static int to_sys_baudrate(int baudrate)
@@ -173,6 +127,75 @@ static int to_sys_baudrate(int baudrate)
 }
 
 
+/**
+ * @brief 使用串口接收，可以设定等待时间
+ * 
+ * @param fd 
+ * @param buf 
+ * @param size 
+ * @param timeout ms
+ * @return int 
+ */
+
+static int read_with_timeout(int fd, void *buf, int size, int timeout)
+{
+    if (timeout <= 0)
+    {
+        return read(fd, buf, size);
+    }
+    else 
+    {
+        // with timer 
+        struct timeval tv;
+        int offset = 0;
+        int ret = 0;
+        fd_set rfds;
+
+        tv.tv_sec = timeout / 1000;
+        tv.tv_usec = (timeout % 1000) * 1000;
+
+        while ((tv.tv_sec > 0 || tv.tv_usec > 0) && (offset < size))
+        {
+            FD_ZERO(&rfds);
+            FD_SET(fd, &rfds);
+
+            ret = select(fd + 1, &rfds, NULL, NULL, &tv);
+
+            if (ret > 0)
+            {
+                ssize_t len = ::read(fd, (unsigned char*)buf + offset, size - offset);
+
+                if (len > 0)
+                {
+                    offset += len;
+                }
+                else if (len < 0) 
+                {
+                    // 读失败，有可能串口设备文件出错？
+                    return len;
+                }
+            }
+            else if (ret == 0)
+            {
+                // timeout                
+                break;
+            }
+            else 
+            {
+                if (errno == EINTR)
+                {
+                    continue;
+                }
+                break;
+            }
+        }
+
+        return offset;
+    }
+}
+
+
+/// 一个串口设置示例
 struct SerialSetting
 {
     int baudrate;
@@ -305,11 +328,14 @@ SerialPort::SerialPort(const std::string &device) : fd_(-1), path_(device)
     {
         name_ = path_;
     }
+
+    statistics_ = { 0 };
 }
 
 
 SerialPort::~SerialPort()
 {
+    // 关闭端口
     if (is_opened())
     {
         close();
@@ -436,6 +462,9 @@ bool SerialPort::is_opened()
 
 void SerialPort::close()
 {
+    // 先停止接收线程
+    async_read_stop();
+
     if (fd_ != -1)
     {
         // 尝试恢复到默认
@@ -450,6 +479,12 @@ void SerialPort::close()
         dlog("serial({}) close", name_);
     }
 }
+
+void SerialPort::get_statistics(SerialStatistics &stats)
+{
+    stats = statistics_;
+}
+
 
 void SerialPort::flush()
 {
@@ -467,61 +502,16 @@ int SerialPort::read(void *buf, int size, int timeout)
         return -1;
     }
 
-    // not timeout, simply return 
-    if (timeout <= 0)
+    int rx_size = read_with_timeout(fd_, buf, size, timeout);
+
+    if (rx_size > 0)
     {
-        return ::read(fd_, buf, size);
+        statistics_.rx_bytes += rx_size;
+
+        trace("serial({}) read: {:X}", name_, spdlog::to_hex((const unsigned char *)buf, (const unsigned char *)buf + rx_size, 16));
     }
-    else 
-    {
-        // with timer 
-        struct timeval tv;
-        int offset = 0;
 
-        tv.tv_sec = timeout / 1000;
-        tv.tv_usec = (timeout % 1000) * 1000;
-
-        while ((tv.tv_sec > 0 || tv.tv_usec > 0) && (offset < size))
-        {
-            int ret;
-            fd_set rfds;
-
-            FD_ZERO(&rfds);
-            FD_SET(fd_, &rfds);
-
-            ret = select(fd_ + 1, &rfds, NULL, NULL, &tv);
-
-            if (ret > 0)
-            {
-                ssize_t len = ::read(fd_, (unsigned char *)buf + offset, size - offset);
-
-                if (len > 0)
-                {
-                    offset += len;
-                }
-            }
-            else if (ret == 0)
-            {
-                // timeout                
-                break;
-            }
-            else 
-            {
-                if (errno == EINTR)
-                {
-                    continue;
-                }
-                break;
-            }
-        }
-       
-        if (offset > 0)
-        {
-            trace("serial({}) read: {:X}", name_, spdlog::to_hex((const unsigned char *)buf, (const unsigned char *)buf + offset, 16));
-        }
-
-        return offset;
-    }
+    return rx_size;
 }
 
 int SerialPort::write(const void *buf, int size)
@@ -567,6 +557,8 @@ int SerialPort::write(const void *buf, int size)
         wlog("serial({}) write {} bytes, but expect {} bytes", name_, offset, size);
     }
 
+    statistics_.tx_bytes += offset;
+
     return offset;
 }
 
@@ -580,6 +572,11 @@ int SerialPort::write(const void *buf, int size)
  */
 bool SerialPort::async_read_start(int queue_size)
 {
+    if (fd_ < 0)
+    {
+        return false;
+    }
+
     if (rx_thread_running_)
     {
         wlog("serial({}) aync-read is running", name_);
@@ -589,16 +586,58 @@ bool SerialPort::async_read_start(int queue_size)
     // 清除fifo数据
     decltype(rx_queue_)().swap(rx_queue_);
 
-    fifo_max_size_ = queue_size;
+    // 设定fifo大小
+    statistics_.fifo_size = queue_size;
 
     rx_thread_ = std::thread([this]() {
 
         this->rx_thread_running_ = true;
+        uint8_t buf[1024];
 
         while(this->rx_thread_running_)
-        {
-            dlog("try rx...");
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        {            
+            // 将数据放入队列中
+            int rx_size = read_with_timeout(fd_, buf, sizeof(buf), 10);
+
+            if (rx_size > 0)
+            {                
+                statistics_.rx_bytes += rx_size;
+
+                // 将数据放放队列中
+                // 如果接收队列的数据小于设定最大小
+                if (this->rx_queue_.size() < this->statistics_.fifo_size)
+                {
+                    // 将这一包数据放在队列，多一点没有关系
+                    for (int i = 0; i < rx_size ; ++i)
+                    {
+                        this->rx_queue_.push(buf[i]);
+                    }
+
+                    // 计算峰值 
+                    if (this->rx_queue_.size() > this->statistics_.fifo_peak_size)
+                    {                        
+                        dlog("serial({}) rx fifo peak rise: {} -> {}", this->name_, this->statistics_.fifo_peak_size, this->rx_queue_.size());
+                        this->statistics_.fifo_peak_size = this->rx_queue_.size();
+                    }
+                }
+                else 
+                {
+                    statistics_.rx_drop_bytes += rx_size;
+                    dlog("serial({}) fifo full, drop {} bytes", this->name_, rx_size);                    
+                }
+
+                trace("serial({}) read: {:X}", name_, spdlog::to_hex((const unsigned char *)buf, (const unsigned char *)buf + rx_size, 16));
+            } 
+            else 
+            {
+                if (rx_size < 0) 
+                {
+                    wlog("serial({}) rx failed,ret={}", this->name_, rx_size);
+                }
+                
+            }           
+
+            //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         }
     });
 
@@ -611,9 +650,12 @@ bool SerialPort::async_read_start(int queue_size)
  */
 void SerialPort::async_read_stop()
 {
-    rx_thread_running_ = false;
-    // wait for end
-    rx_thread_.join();        
+    if (rx_thread_running_)
+    {
+        rx_thread_running_ = false;
+        // wait for end
+        rx_thread_.join();
+    }
 }
 
 /**
@@ -625,7 +667,19 @@ void SerialPort::async_read_stop()
  */
 int SerialPort::async_read(void *buf, int size)
 {
-    return 0;
+    int rx_size = 0;
+
+    unsigned char *data = (unsigned char *)buf;
+
+    while(!rx_queue_.empty() && (rx_size < size))
+    {
+        data[rx_size] = rx_queue_.front();
+        rx_queue_.pop();
+
+        ++ rx_size;
+    }
+
+    return rx_size;
 }
 
 

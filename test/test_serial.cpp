@@ -9,11 +9,8 @@
 #include <common/sys_time.h>
 #include <common/libuv_utils.h>
 #include <common/serial_port.h>
-#include <common/tcp_server.h>
 
-#include <uv.h>
-
-#define APP_NAME  "nos-common"
+#define APP_NAME  "test-serial"
 
 
 int main(int argc, const char *argv[])
@@ -24,17 +21,13 @@ int main(int argc, const char *argv[])
     ilog(APP_NAME " started, build time: {} {}", __DATE__, __TIME__);
 
     nos::libuv::RunLoop loop(true);
-
     nos::libuv::Timer timer(loop());
-
-    //nos::network::TcpServer tcp(loop(), "0.0.0.0", 9901);
-    //tcp.start();
 
     nos::driver::SerialPort port("/dev/ttyUSB0");
 
     port.open("115200");
 
-    ilog("open port {}", port.is_opened() ? "success" : "failed");
+    ilog("open port({}) {}", port.name(), port.is_opened() ? "success" : "failed");
 
     if (port.is_opened())
     {
@@ -60,19 +53,47 @@ int main(int argc, const char *argv[])
 
         port.async_read_start();
 
-        timer.start(10000, 1000, &port, [](nos::libuv::Timer &timer, void *data)
+
+        timer.start(2000, 1000, &port, [](nos::libuv::Timer &timer, void *data)
             {
                 auto port = static_cast<nos::driver::SerialPort *>(data);
 
-                timer.stop();
+                //timer.stop();
+                nos::driver::SerialStatistics stats = { 0 };
+                port->get_statistics(stats);
 
-                ilog("timer's up, stop read");
-                port->async_read_stop();                
+                ilog("fifo: {} peak {}", stats.fifo_size, stats.fifo_peak_size);
+                ilog("tx  : {} ", stats.tx_bytes);
+                ilog("rx  : {} drop {}", stats.rx_bytes, stats.rx_drop_bytes);
+
+                //port->async_read_stop();                
             });
     }
 
+    // 创建一个接收线程，从fifo中接收数据，并返回指定的值
+    std::thread test = std::thread([&port](){
+
+        uint8_t buf[256];
+        while(port.is_opened())
+        {
+            int size = port.async_read(buf, sizeof(buf));
+            if (size > 0)
+            {
+                //ilog("rx {}", size);
+                port.write(buf, size);
+            }  
+
+            nos::system::mdelay(10);              
+        }
+
+        ilog("test thread exit");
+    });
 
     loop.spin();
+    // 关闭串口
+    port.close();
+    // 
+    test.join();
 
     wlog(APP_NAME " exited");
 

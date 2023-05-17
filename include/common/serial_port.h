@@ -22,6 +22,20 @@ namespace nos
 namespace driver 
 {
 
+/**
+ * @brief 串口收发统计
+ * 
+ */
+struct SerialStatistics
+{
+    uint32_t fifo_size;
+    uint32_t fifo_peak_size;
+    uint64_t rx_bytes;
+    uint64_t tx_bytes;
+    uint64_t rx_drop_bytes;
+};
+
+
 class SerialPort
 {
 public:
@@ -115,6 +129,13 @@ public:
     /// @brief 关闭端口
     void close();
 
+    /**
+     * @brief 返回一个统计信息
+     * 
+     * @param stats 
+     */
+    void get_statistics(SerialStatistics &stats);
+
 private:
     int fd_;
     std::string path_;
@@ -123,14 +144,15 @@ private:
     /// 保存默认配置，在关闭时恢复到默认值
     struct termios default_options_;
 
-    /// 队列最大大小
-    int fifo_max_size_;
     /// 接收队列 
     std::queue<unsigned char> rx_queue_;
     /// 接收线程
     std::thread rx_thread_;
     /// 接收线程是否在运行
     bool rx_thread_running_;
+    /// 串口统计信息
+    SerialStatistics statistics_;
+
 };
 
 } // driver
