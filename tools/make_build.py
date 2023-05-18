@@ -28,8 +28,8 @@ class MakeBuild:
 
     def setup(self)->bool:   
 
-        print("==> Create folder:", self._build_dir);
-        print("==> Create folder:", self._install_dir);
+        print("==> Create folder:", self._build_dir)
+        print("==> Create folder:", self._install_dir)
 
         os.makedirs(self._build_dir, exist_ok=True)
         os.makedirs(self._install_dir, exist_ok=True)
