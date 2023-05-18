@@ -156,8 +156,4 @@ if __name__ == "__main__":
         print("***Source file(%s) not found" % options['file'])
         sys.exit(1)
     
-    mb = MakeBuild(options['file'], options['--build'], options['--prefix'])
-    mb.setup()
-    mb.clean()
-    mb.build()
-    mb.install()
+    MakeBuild(options['file'], options['--build'], options['--prefix']).install_all()

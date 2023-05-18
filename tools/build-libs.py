@@ -5,19 +5,17 @@ import make_build as make
 import platform
 import shutil
 import sys
+import json
 
 ## 获取当前目录
 local_dir =  os.path.dirname(os.path.abspath(__file__))
 upper_dir = os.path.abspath(os.path.join(local_dir, ".."))
+config_file = os.path.join(local_dir, "build-libs.json")
 
+targets = {}
 
-## 前面的是用来检验是否需要编译的，如果文件已存在，就不编译了
-targets = {
-    'lib/libdocopt.so':'docopt.cpp-0.6.3.tar.gz',
-    'lib/libfmt.a':'fmt-8.1.1.tar.gz',
-    'lib/libuv.so':'libuv-1.44.2.tar.gz',
-    'lib/libspdlog.a':'spdlog-1.11.0.tar.gz'
-}
+with open(config_file, "r") as fp:
+    targets = json.load(fp)
 
 ## 设定目录
 zips_dir =  os.path.join(upper_dir, "zips")
@@ -31,11 +29,10 @@ else:
 
 print("install_dir:", install_dir)
 
-
-for lib,tgz in targets.items():
-    test_file = os.path.join(install_dir, lib)
+for tgz, depend in targets.items():
+    test_file = os.path.join(install_dir, depend)
     if os.path.exists(test_file):
-        print("==> file(%s) exist, ignore %s" % (lib, tgz))
+        print("==> file(%s) exist, ignore %s" % (depend, tgz))
     else:
         make.MakeBuild(os.path.join(zips_dir, tgz), build_dir, install_dir).install_all()
 

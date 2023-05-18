@@ -10,6 +10,10 @@
 
 ```sh
 
+make libs
+
+## 或者
+
 cd tools
 
 ./build-libs.py 

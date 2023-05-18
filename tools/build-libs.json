@@ -1,0 +1,6 @@
+{
+    "docopt.cpp-0.6.3.tar.gz" : "lib/libdocopt.so",
+    "fmt-8.1.1.tar.gz" : "lib/libfmt.a",
+    "libuv-1.44.2.tar.gz" : "lib/libuv.so",
+    "spdlog-1.11.0.tar.gz" : "lib/libspdlog.a"
+}
