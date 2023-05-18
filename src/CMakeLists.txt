@@ -4,7 +4,8 @@ set(LIBRARY_NAME noscommon)
 
 add_library(${LIBRARY_NAME} STATIC logger.cpp serial_port.cpp tcp_server.cpp)
 
-target_link_libraries(${LIBRARY_NAME} PUBLIC spdlog::spdlog ${LIB_UV})
+## 添加依赖
+add_dependencies(${LIBRARY_NAME} build_libs)
 
 ## install rule
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/ DESTINATION include)
