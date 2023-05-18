@@ -6,6 +6,11 @@ import platform
 import shutil
 import sys
 
+## 获取当前目录
+local_dir =  os.path.dirname(os.path.abspath(__file__))
+upper_dir = os.path.abspath(os.path.join(local_dir, ".."))
+
+
 ## 前面的是用来检验是否需要编译的，如果文件已存在，就不编译了
 targets = {
     'lib/libdocopt.so':'docopt.cpp-0.6.3.tar.gz',
@@ -15,9 +20,9 @@ targets = {
 }
 
 ## 设定目录
-zips_dir = "../zips"
-build_dir = "../libs-build"
-install_dir = "../local-install"
+zips_dir =  os.path.join(upper_dir, "zips")
+build_dir = os.path.join(upper_dir, "libs-build")
+install_dir = os.path.join(upper_dir, "local-install")
 
 if len(sys.argv) > 1:
     install_dir = sys.argv[1]
@@ -26,19 +31,15 @@ else:
 
 print("install_dir:", install_dir)
 
-# ## 获取绝对位置
-zips_abs_dir = os.path.abspath(zips_dir)
-build_abs_dir = os.path.abspath(build_dir)
-install_abs_dir = os.path.abspath(install_dir)
 
 for lib,tgz in targets.items():
-    test_file = os.path.join(install_abs_dir, lib)
+    test_file = os.path.join(install_dir, lib)
     if os.path.exists(test_file):
         print("==> file(%s) exist, ignore %s" % (lib, tgz))
     else:
-        make.MakeBuild(os.path.join(zips_abs_dir, tgz), build_abs_dir, install_abs_dir).install_all()
+        make.MakeBuild(os.path.join(zips_dir, tgz), build_dir, install_dir).install_all()
 
 ## 删除安装源目录
-if os.path.exists(build_abs_dir):    
-    shutil.rmtree(build_abs_dir)
+if os.path.exists(build_dir):    
+    shutil.rmtree(build_dir)
 
