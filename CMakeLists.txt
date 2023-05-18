@@ -23,18 +23,17 @@ message(STATUS "=> Local install at ${LOCAL_INSTALL_DIR}")
 # UNIX上用冒号分隔，Windows上用分号分隔。默认情况下，它为空。它旨在由项目设置。
 set(CMAKE_PREFIX_PATH ${LOCAL_INSTALL_DIR})
 
-## 安装目录
-
-set(CMAKE_INSTALL_PREFIX ${LOCAL_INSTALL_DIR})
-
 find_package(libuv REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(fmt REQUIRED)
-find_package(docopt REQUIRED)
+#find_package(docopt REQUIRED)
 
 # message(STATUS "=> libuv:${libuv_DIR}")
 # message(STATUS "=> libuv:${libuv_INCLUDE_DIRS}")
 # message(STATUS "=> libuv:${libuv_LIBS}")
+
+## 安装目录
+set(CMAKE_INSTALL_PREFIX ${LOCAL_INSTALL_DIR})
 
 ## set default include folder
 include_directories(
