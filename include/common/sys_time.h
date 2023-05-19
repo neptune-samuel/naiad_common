@@ -67,7 +67,10 @@ static inline void mdelay(int ms)
     std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
 
-
+/**
+ * @brief 一个系统时钟
+ * 
+ */
 class SysTime
 {
 
@@ -113,6 +116,10 @@ private:
 };
 
 
+/**
+ * @brief 系统TICK
+ * 
+ */
 class SysTick
 {
 public:

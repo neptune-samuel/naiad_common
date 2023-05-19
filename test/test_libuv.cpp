@@ -22,7 +22,7 @@ int main() {
 
 //   uv_signal_stop(&signal);
 
-  nos::libuv::RunLoop mloop(true);
+  nos::libuv::RunLoop mloop(nos::libuv::LoopType::Default);
 //   loop = mloop.get_loop();
 // //   uv_signal_t signal;
 // //   uv_signal_init(loop, &signal);

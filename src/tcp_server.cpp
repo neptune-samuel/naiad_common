@@ -1,5 +1,6 @@
 
 
+
 /**
  * @file tcp_server.cc
  * @author Liu Chuansen (samule@neptune-robotics.com)
@@ -10,14 +11,13 @@
  * @copyright Copyright (c) 2023
  * 
  */
-#include <uv.h>
 #include <string>
+#include <thread>
 
 #include <sys/socket.h>
 
 #include <common/logger.h>
 #include <common/sys_time.h>
-
 #include <common/tcp_server.h>
 
 namespace nos 
@@ -25,7 +25,6 @@ namespace nos
 
 namespace network
 {
-
 
 /**
  * @brief TCP 连接对象
@@ -37,16 +36,14 @@ public:
     /**
      * @brief 创建一个TCP连接
      * 
-     * @param parent 
+     * @param server 
      */
-    TcpConnection(TcpServer &parent) : parent_(parent), connected_(false), address_(""), port_(0)
+    TcpConnection(TcpServer &server) : server_(server), connected_(false), address_(""), port_(0)
     {
-        uv_tcp_init(parent.get_loop(), &client_);
+        uv_tcp_init(server.get_loop(), &client_);
 
         /// 设置对象数据？
         uv_handle_set_data((uv_handle_t *)&client_, this);
-
-
     }
 
     /**
@@ -56,43 +53,6 @@ public:
     ~TcpConnection()
     {
         close();        
-    }
-
-    /**
-     * @brief 获取连接简称
-     * 
-     * @return std::string 
-     */
-    std::string brief() const
-    {
-        return address_ + ":" + std::to_string(port_);
-    }
-
-    /**
-     * @brief 是否连接
-     * 
-     * @return true 
-     * @return false 
-     */
-    bool is_connected() const
-    {
-        return connected_;
-    }
-
-    nos::network::ClientInfo client_info()
-    {
-        nos::network::ClientInfo ci;
-
-        dlog("uptime={}", up_time_.to_time_string());
-        ci.address = address_;
-        ci.port = port_;
-        ci.connected = connected_;
-        ci.up_time = up_time_;
-        ci.down_time = down_time_;
-
-        dlog("ret uptime={}", ci.up_time.to_time_string());
-
-        return ci;
     }
 
     /**
@@ -112,13 +72,13 @@ public:
             
             update_address_info();            
             
-            ilog("connection({}) setup success", brief());
+            ilog("{}: connection({}) accept success", server_.get_name(), brief());
             return true;
         }
         else 
         {
             connected_ = false;
-            wlog("TCP connection accept failed, ret={}", ret);
+            wlog("{}: connection accept failed, ret={}", server_.get_name(), ret);
             return false;
         }
     }
@@ -136,15 +96,6 @@ public:
         }
     }
 
-    /**
-     * @brief 返回父对象，在回调函数中使用
-     * 
-     * @return TcpServer* 
-     */
-    TcpServer &get_parent()
-    {
-        return parent_;
-    }
 
     /**
      * @brief 启用读回调
@@ -154,49 +105,74 @@ public:
      */
     bool read_start()
     {
-        uv_read_start((uv_stream_t*)&client_, [](uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
-            
+        uv_read_start((uv_stream_t*)&client_, [](uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {            
             // 申请空间
             buf->base = (char *)malloc(suggested_size);
             buf->len = suggested_size;
+
         }, [](uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf) {
+            
+            // 获得连接实例
             auto conn = static_cast<TcpConnection*>(stream->data);
             
-            if (nread < 0)
+            // 调用服务端的数据处理函数
+            if (nread > 0)
             {
-                if (nread != UV_EOF)
-                {
-                    elog("connection({}) read error: {}", conn->brief(), uv_err_name(nread));    
-                }
-                else 
-                {
-                    wlog("connection({}) reset by remote", conn->brief());
-                }
-                
-                // 关闭客户端
-                free(buf->base);
-
-                conn->close();
-                conn->get_parent().clean_connections();
+                conn->server_.on_client_receive(*conn, (unsigned char *)buf->base, nread);
             }
-            else 
+            else if (nread != UV_EOF)
             {
-                free(buf->base);
-
-                ilog("connection({}) read {} bytes", conn->brief(), nread);
+                // client read error ?
+                elog("{}: client({}) read failed, ret={}", conn->server_.get_name(), conn->brief(), uv_strerror(nread));
             }
+
+            // 释放空间
+            free(buf->base); 
         });
 
         return true;
     }
 
- 
+    /**
+     * @brief 获取连接简称
+     * 
+     * @return std::string 
+     */
+    const std::string brief() const
+    {
+        return address_ + ":" + std::to_string(port_);
+    }
 
+    /**
+     * @brief 是否连接
+     * 
+     * @return true 
+     * @return false 
+     */
+    bool is_connected() const
+    {
+        return connected_;
+    }
 
+    // nos::network::ClientInfo client_info()
+    // {
+    //     nos::network::ClientInfo ci;
+
+    //     dlog("uptime={}", up_time_.to_time_string());
+    //     ci.address = address_;
+    //     ci.port = port_;
+    //     ci.connected = connected_;
+    //     ci.up_time = up_time_;
+    //     ci.down_time = down_time_;
+
+    //     dlog("ret uptime={}", ci.up_time.to_time_string());
+
+    //     return ci;
+    // }
 
 private:
     /// TCP服务端
-    TcpServer & parent_;
+    TcpServer & server_;
     /// 连接对象
     uv_tcp_t client_;
     /// 连接状态
@@ -246,37 +222,27 @@ private:
 
 
 
-
 /**
- * @brief 构造函数 
+ * @brief 创建一个TCP服务端
  * 
- * @param loop 
+ * @param name 名称
+ * @param address 地址
+ * @param port 端口
+ * @param max_clients_num  最大连接数，0 不限制 
  */
-TcpServer::TcpServer(uv_loop_t *loop, std::string address, int port) : loop_(loop), address_(address), port_(port)
+TcpServer::TcpServer(const std::string &name, 
+    const std::string &address, 
+    int port, 
+    int max_clients_num) : libuv::TcpServer(false), name_(name), address_(address), port_(port)
 {
-    if (loop == nullptr)
-    {
-        loop_ = uv_default_loop();
-    }
-
-    uv_tcp_init(loop_, &server_);
-
-    stream_ = (uv_stream_t *)&server_;
-    handle_ = (uv_handle_t *)&server_;
-
     started_ = false;
-    backlog_ = 128;
 
     /// 设置对象数据？
-    uv_handle_set_data(handle_, this);
-}
+    uv_handle_set_data((uv_handle_t*)&server_, this);
 
-/**
- * @brief 代理构造函数
- * 
- * @param loop 
- */
-TcpServer::TcpServer(uv_loop_t *loop) : TcpServer(loop, "0.0.0.0", 9999) { }
+    // 设置brief
+    brief_ = address_ + ":" + std::to_string(port_);
+}
 
 
 /**
@@ -286,110 +252,104 @@ TcpServer::TcpServer(uv_loop_t *loop) : TcpServer(loop, "0.0.0.0", 9999) { }
 TcpServer::~TcpServer()
 {    
     // 先关闭所有的连接
-    close_all_connections();
-
-    // 关闭自己的
-    uv_close(handle_, nullptr);   
+    stop();
 }
 
 /**
- * @brief 返回一个简称
+ * @brief 获取TCP服务的名称
  * 
- * @return std::string 
+ * @return const std::string& 
  */
-std::string TcpServer::brief()
+const std::string & TcpServer::get_name()
 {
-    return address_ + ":" + std::to_string(port_);
+    return name_;
 }
+
 
 /**
- * @brief 绑定到指定接口
+ * @brief 获取一个简称
  * 
- * @param ip 
- * @param port 
- * @return true 
- * @return false 
+ * @return const std::string& 
  */
-bool TcpServer::bind(const std::string &ip, int port)
+const std::string & TcpServer::get_brief()
 {
-    struct sockaddr_in addr;
-    
-    uv_ip4_addr(ip.c_str(), port, &addr);
-    
-    int ret = uv_tcp_bind(&server_, (const struct sockaddr *)&addr, 0);
-    dlog("call uv_tcp_bind() return {}", ret);
-
-    return (ret == 0);
+    return brief_;
 }
 
-/**
- * @brief 开启监听
- * 
- * @param backlog 
- * @return true 
- * @return false 
- */
-bool TcpServer::listen(int backlog)
-{
-    int ret = uv_listen(stream_, backlog, [](uv_stream_t *server, int status){
-        auto self = static_cast<TcpServer*>(server->data);
-        self->on_new_connection(status);            
-    });
-
-    dlog("call uv_listen() return {}", ret);
-
-    if (!ret)
-    {
-        ilog("TCP server listened on {}:{}", address_, port_);
-    }
-
-    return (ret == 0);
-}
 
 
 bool TcpServer::start()
 {
-    if (!bind(address_, port_))
+    if (started_)
     {
+        wlog("start {} failed, it seems already started", name_);
         return false;
     }
 
-    if (!listen(backlog_))
+    int ret = bind(address_, port_);
+    if (ret != 0)
     {
+        elog("{}: bind to {} failed: {}", name_, brief_, uv_strerror(ret));
         return false;
     }
 
-    started_ = true;
+    int backlog = 128;
+
+    ret = uv_listen((uv_stream_t *)&server_, backlog, [](uv_stream_t *server, int status){
+            auto self = static_cast<TcpServer*>(server->data);
+            self->on_new_connection(status);            
+        });
+
+    if (ret != 0)
+    {
+        elog("{}: listen failed: {}", name_, uv_strerror(ret));
+        return false;
+    }
+
+    ilog("{}: listen on {} success", name_, brief_);
+
+    // 创建一个线程，运行uv loop
+    thread_ = std::thread(&TcpServer::loop_thread, this);
 
     return true;
 }
 
 
-bool TcpServer::run()
+/**
+ * @brief 停止TCP服务
+ * 
+ */
+void TcpServer::stop()
 {
-    if (!started_)
+    if (started_)
     {
-        start();
+        // TODO: close all connections
+        close_all_connections();
+
+        // 停止线程
+        uv_stop(get_loop());
+        // wait for thread done
+        thread_.join();
+
+        started_ = false;
     }
-
-    return uv_run(loop_, UV_RUN_DEFAULT);
-} 
+}
 
 
-void TcpServer::clean_connections()
+/**
+ * @brief LOOP 线程
+ * 
+ */
+void TcpServer::loop_thread()
 {
-    for (auto it = connections_.begin(); it != connections_.end();)
-    {
-        if (!(*it)->is_connected())
-        {
-            ilog("find offline connection, delete it");
-            it = connections_.erase(it);
-        }
-        else 
-        {
-            ++ it;
-        }
-    }
+    started_ = true;
+    ilog("{}: loop thread started", name_);
+    // 启动UV LOOP
+    uv_run(get_loop(), UV_RUN_DEFAULT);    
+
+    wlog("{}: loop thread exited", name_);    
+
+    started_ = false;
 }
 
 /**
@@ -398,58 +358,29 @@ void TcpServer::clean_connections()
  */
 void TcpServer::close_all_connections()
 {
+    /// 删除所有连接
     if (connections_.size() > 0)
     {
         decltype(connections_)().swap(connections_);
     }    
 }
 
-
 /**
- * @brief 获取连接列表
+ * @brief 处理新连接
  * 
- * @return std::vector<nos::network::ClientInfo> 
- */
-std::vector<nos::network::ClientInfo> TcpServer::get_clients()
-{
-    std::vector<nos::network::ClientInfo> clients;
-
-    for (auto it = connections_.begin(); it != connections_.end(); ++it)
-    {
-        clients.push_back((*it)->client_info());
-    }
-
-    return clients;
-}
-
-
-/**
- * @brief 获取连接数量 
- * 
- * @return int 
- */
-int TcpServer::get_clients_num()
-{
-    return connections_.size();
-}
-
-
-/**
- * @brief 当有新的连接请求时的处理函数
- * 
- * @param status uv提供的状态， < 0 表示 错误
+ * @param status 
  */
 void TcpServer::on_new_connection(int status)
 {
     if (status < 0)
     {
-        elog("callback error: {}", uv_strerror(status));
+        elog("{}: connection callback error: {}", name_, uv_strerror(status));
         return ;
     }
 
     auto conn = std::make_unique<TcpConnection>(*this);
 
-    if (conn->accept(stream_))
+    if (conn->accept((uv_stream_t *)&server_))
     {
         // 启动读操作
         conn->read_start();
@@ -458,7 +389,20 @@ void TcpServer::on_new_connection(int status)
     }
 }
 
+/**
+ * @brief 当从客户端接收到数据时
+ * 
+ * @param conn 
+ * @param buf 
+ * @param size 
+ */
+void TcpServer::on_client_receive(TcpConnection &conn, unsigned char *buf, ssize_t size)
+{
+    dlog("{}: read {} bytes from client({})", name_, size, conn.brief());
+}
+
 
 } // network
 
 } // nos
+

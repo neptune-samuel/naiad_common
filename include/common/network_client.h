@@ -34,6 +34,18 @@ struct ClientInfo
     }
 };
 
+/**
+ * @brief 定义一个连接类型
+ * 
+ */
+enum class ClientState : int 
+{ 
+    Disconnected,
+    Connected,
+    All,
+};
+
+
 } // end network
 
 } // end nos

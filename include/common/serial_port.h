@@ -15,6 +15,7 @@
 #include <string>
 #include <queue>
 #include <thread>
+#include <mutex>
 
 
 namespace nos 
@@ -146,6 +147,8 @@ private:
 
     /// 接收队列 
     std::queue<unsigned char> rx_queue_;
+    /// 队列锁
+    std::mutex rx_queue_mutex_;
     /// 接收线程
     std::thread rx_thread_;
     /// 接收线程是否在运行

@@ -716,6 +716,9 @@ bool SerialPort::async_read_start(int queue_size)
                 // 如果接收队列的数据小于设定最大小
                 if (this->rx_queue_.size() < this->statistics_.fifo_size)
                 {
+                    // 加一个锁保护
+                    std::lock_guard<std::mutex> lock(this->rx_queue_mutex_);
+
                     // 将这一包数据放在队列，多一点没有关系
                     for (int i = 0; i < rx_size ; ++i)
                     {
@@ -783,6 +786,9 @@ int SerialPort::async_read(void *buf, int size)
     int rx_size = 0;
 
     unsigned char *data = (unsigned char *)buf;
+
+    // 加一个锁保护
+    std::lock_guard<std::mutex> lock(rx_queue_mutex_);
 
     while(!rx_queue_.empty() && (rx_size < size))
     {

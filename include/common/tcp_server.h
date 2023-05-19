@@ -15,15 +15,15 @@
 
 #include <string>
 #include <vector>
+#include <iostream>
+#include <thread>
 
+#include <common/libuv_utils.h>
 #include <common/network_client.h>
-
-#include <uv.h>
 
 namespace nos
 {
 
-// 放置于网络的命名空间
 namespace network
 {
 
@@ -31,41 +31,53 @@ namespace network
 class TcpConnection;
 
 
+
 /**
  * @brief 一个TCP服务端的封装
  * 
  */
-class TcpServer
+class TcpServer : public libuv::TcpServer
 {
-
 public:
-    TcpServer(uv_loop_t *loop);
-    TcpServer(uv_loop_t *loop, std::string address, int port);    
+
+    /**
+     * @brief 创建一个TCP服务端
+     * 
+     * @param name 名称
+     * @param address 地址
+     * @param port 端口
+     * @param max_clients_num  最大连接数，0 不限制 
+     */
+    TcpServer(const std::string &name, const std::string &address, int port, int max_clients_num = 10);
+
+    /**
+     * @brief 创建一个默认参数的TCP服务
+     * 
+     * @param name 
+     */
+    TcpServer(const std::string &name): TcpServer(name, "0.0.0.0", 9600) { }
+    /**
+     * @brief 析构TCP服务
+     * 
+     */
     ~TcpServer();
 
-    // 禁止复制构造
-    TcpServer(const TcpServer &) = delete;
-    TcpServer & operator=(const TcpServer &) = delete;
-
     /**
-     * @brief 返回一个简称
+     * @brief 获取TCP服务的名称
      * 
-     * @return std::string 
+     * @return const std::string& 
      */
-    std::string brief();
+    const std::string & get_name();
 
     /**
-     * @brief 返回loop对象
+     * @brief 获取一个简称
      * 
-     * @return uv_loop_t* 
+     * @return const std::string& 
      */
-    uv_loop_t *get_loop()
-    {
-        return loop_;
-    }
+    const std::string & get_brief();
 
     /**
-     * @brief 启动服务
+     * @brief 启动TCP服务，开始监听指定端口
      * 
      * @return true 
      * @return false 
@@ -73,71 +85,49 @@ public:
     bool start();
 
     /**
-     * @brief 执行
-     * 
-     * @return true 
-     * @return false 
-     */
-    bool run();
-
-    /**
-     * @brief 清理连接
+     * @brief 停止TCP服务，它将关闭所有连接
      * 
      */
-    void clean_connections();
+    void stop();
 
     /**
-     * @brief 返回客户端数量 
-     * 
-     * @return int 
-     */
-    int get_clients_num();
-
-    /**
-     * @brief 关闭所有的连接
+     * @brief 清空所有连接
      * 
      */
     void close_all_connections();
 
     /**
-     * @brief 获取一个客户端列表
+     * @brief 返回所有客户端
      * 
-     * @return std::vector<nos::network::ClientInfo> 
+     * @return const std::vector<ClientInfo>& 
      */
-    std::vector<nos::network::ClientInfo> get_clients();
+    //const std::vector<ClientInfo> &get_clients();
+
+    /// 将连接声明为友元类
+    friend class TcpConnection;
 
 private:
+    /// 地址
     std::string address_;
+    /// 端口
     int port_;
-    int backlog_;
+    
+    /// 名称
+    std::string name_;
+    /// 最大连接数
+    int max_clients_num_;
+    /// 是否已启动
     bool started_;
+    /// 简要信息
+    std::string brief_;
 
-    uv_loop_t * loop_;
-    uv_tcp_t server_;
-    uv_stream_t *stream_;
-    uv_handle_t *handle_;
+    /// TCP线程
+    std::thread thread_;
 
     /// TCP连接队列
     std::vector<std::unique_ptr<TcpConnection>> connections_;
-
-    /**
-     * @brief 绑定到指定接口
-     * 
-     * @param ip 
-     * @param port 
-     * @return true 
-     * @return false 
-     */
-    bool bind(const std::string &ip, int port);
-
-    /**
-     * @brief 启用监听
-     * 
-     * @param backlog 
-     * @return true 
-     * @return false 
-     */
-    bool listen(int backlog);
+    /// 客户端信息
+    std::vector<ClientInfo> clients_;
 
     /**
      * @brief 处理新连接
@@ -146,6 +136,20 @@ private:
      */
     void on_new_connection(int status);
 
+    /**
+     * @brief 当从客户端接收到数据时
+     * 
+     * @param conn 
+     * @param buf 
+     * @param size 
+     */
+    void on_client_receive(TcpConnection &conn, unsigned char *buf, ssize_t size);
+
+    /**
+     * @brief LOOP执行线程
+     * 
+     */
+    void loop_thread();
 };
 
 
