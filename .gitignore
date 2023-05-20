@@ -1,5 +1,6 @@
 /.vscode-ctags
 /build
+/local-install
 /tools/__pycache__
 /.vscode/launch.json
 /.vscode/settings.json

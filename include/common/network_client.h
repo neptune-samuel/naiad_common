@@ -25,24 +25,6 @@ struct ClientInfo
     nos::system::SysTick up_time;
     /// 断开时间
     nos::system::SysTick down_time;
-
-    /// @brief 返回一个简称
-    /// @return std::string
-    std::string brief()
-    {
-        return address + ":" + std::to_string(port);
-    }
-};
-
-/**
- * @brief 定义一个连接类型
- * 
- */
-enum class ClientState : int 
-{ 
-    Disconnected,
-    Connected,
-    All,
 };
 
 

@@ -11,6 +11,17 @@
  * 
  * @copyright Copyright (c) 2023
  * 
+ * @note 
+ *   增加一个客户端ClientInfo信息容器，
+ * 
+ *   TCP服务需要以下功能
+ *   - 获取当前的连接数量
+ *           get_clients() //返回所有连接数据 
+ *           get_clients() // 返回当前的连接 
+ *   - 往一个或多个客户端写数据               
+ *             send(Client, data, size)
+ *   - 设定回调函数，当从某客户端接收到数据时
+ * 
  */
 
 #include <string>
@@ -30,8 +41,6 @@ namespace network
 /// 声明一个TCP连接内部类型
 class TcpConnection;
 
-
-
 /**
  * @brief 一个TCP服务端的封装
  * 
@@ -48,14 +57,14 @@ public:
      * @param port 端口
      * @param max_clients_num  最大连接数，0 不限制 
      */
-    TcpServer(const std::string &name, const std::string &address, int port, int max_clients_num = 10);
+    TcpServer(std::string const &name, std::string const &address, int port, int max_clients_num = 10);
 
     /**
      * @brief 创建一个默认参数的TCP服务
      * 
      * @param name 
      */
-    TcpServer(const std::string &name): TcpServer(name, "0.0.0.0", 9600) { }
+    TcpServer(std::string const &name): TcpServer(name, "0.0.0.0", 9600) { }
     /**
      * @brief 析构TCP服务
      * 
@@ -67,14 +76,14 @@ public:
      * 
      * @return const std::string& 
      */
-    const std::string & get_name();
+    std::string const & get_name();
 
     /**
      * @brief 获取一个简称
      * 
      * @return const std::string& 
      */
-    const std::string & get_brief();
+    std::string const & get_brief();
 
     /**
      * @brief 启动TCP服务，开始监听指定端口
@@ -123,31 +132,31 @@ private:
 
     /// TCP线程
     std::thread thread_;
+    bool thread_exit_;
 
     /// TCP连接队列
     std::vector<std::unique_ptr<TcpConnection>> connections_;
     /// 客户端信息
     std::vector<ClientInfo> clients_;
 
-    /**
-     * @brief 处理新连接
-     * 
-     * @param status 
-     */
-    void on_new_connection(int status);
+
+    // /**
+    //  * @brief 连接事件处理
+    //  * 
+    //  * @param connection 连接对象
+    //  * @param event 事件
+    //  * @param data 数据
+    //  * @param size 数据大小
+    //  */
+    // void connection_event_handle(TcpConnection &connection, TcpConnection::Event event, unsigned char *data, int size);
 
     /**
-     * @brief 当从客户端接收到数据时
-     * 
-     * @param conn 
-     * @param buf 
-     * @param size 
+     * @brief 处理新连接
      */
-    void on_client_receive(TcpConnection &conn, unsigned char *buf, ssize_t size);
+    void setup_connection();
 
     /**
      * @brief LOOP执行线程
-     * 
      */
     void loop_thread();
 };

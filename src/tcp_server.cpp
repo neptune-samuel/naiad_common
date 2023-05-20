@@ -29,18 +29,34 @@ namespace network
 /**
  * @brief TCP 连接对象
  * 
+ * @note 一个TCP连接，需要实现以下功能
+ *   连接初始化
+ *   检测到连接断开时
+ *      通知主服务删除自己
+ *   检测到有可读数据时
+ *      调用主服务提供的数据处理函数
+ *   
+ *   发送数据接口
  */
 class TcpConnection
 {
 public:
+
+    /// 事件类型
+    enum class Event : int {ReadAvailable = 0, ConnectionLost};
+
+    /// 事件回调函数 
+    typedef std::function<void(TcpConnection &, Event, unsigned char *, int)> EventHandle;
+
     /**
      * @brief 创建一个TCP连接
      * 
      * @param server 
      */
-    TcpConnection(TcpServer &server) : server_(server), connected_(false), address_(""), port_(0)
+    TcpConnection(uv_loop_t *loop, EventHandle handle) : event_handle_(handle), connected_(false), address_(""), port_(0)
     {
-        uv_tcp_init(server.get_loop(), &client_);
+        // 先初始化一个TCP连接
+        uv_tcp_init(loop, &client_);
 
         /// 设置对象数据？
         uv_handle_set_data((uv_handle_t *)&client_, this);
@@ -62,25 +78,86 @@ public:
      * @return true 
      * @return false 
      */
-    bool accept(uv_stream_t *stream)
+    bool accept(std::string & server_name, uv_tcp_t &server)
     {
-        int ret = uv_accept(stream, (uv_stream_t *)&client_);
-        if (!ret)
+        // 如果已连接，不能进行accept
+        if (connected_)
         {
-            connected_ = true;
-            up_time_ = nos::system::uptime();
-            
-            update_address_info();            
-            
-            ilog("{}: connection({}) accept success", server_.get_name(), brief());
-            return true;
-        }
-        else 
-        {
-            connected_ = false;
-            wlog("{}: connection accept failed, ret={}", server_.get_name(), ret);
+            wlog("{}: accept duplicated", brief());
             return false;
         }
+
+        int ret = uv_accept((uv_stream_t *)&server, (uv_stream_t *)&client_);
+        if (ret != 0)
+        {
+            connected_ = false;
+            wlog("{}: connection accept failed, ret={}", server_name, ret);
+            return false;
+        }
+
+        connected_ = true;
+        up_time_ = nos::system::uptime();
+
+        // set tcp optoins
+        {
+            // enable 
+            int ret = uv_tcp_nodelay(&client_, 1);
+            trace("{}: uv_tcp_nodelay() return {}", server_name, ret);
+
+            // KeepAlive 时间 TODO
+            ret = uv_tcp_keepalive(&client_, 1, 10);
+            trace("{}: uv_tcp_keepalive() return {}", server_name, ret);
+        }
+
+        // 获取地址及端口信息
+        update_client_info();            
+        
+        ilog("{}: connection({}) accept success", server_name, brief());
+
+        // 启动读函数
+        uv_read_start((uv_stream_t*)&client_, [](uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {            
+            // 申请空间
+            buf->base = (char *)malloc(suggested_size);
+            buf->len = suggested_size;
+
+        }, [](uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf) {
+            
+            // 获得连接实例
+            auto conn = static_cast<TcpConnection*>(stream->data);
+
+            // 如果有回调函数
+            // 调用服务端的数据处理函数
+            if (nread > 0)
+            {
+                trace("{}: read {} bytes", conn->brief(), nread);
+                if (conn->event_handle_)
+                {
+                    conn->event_handle_(*conn, Event::ReadAvailable, (unsigned char *)buf->base,  static_cast<int>(nread));
+                }
+            }
+            else if (nread == UV_EOF)
+            {
+                conn->connected_ = false;
+                conn->down_time_ = nos::system::uptime();
+
+                wlog("tcp client({}) connection lost", conn->brief());
+                if (conn->event_handle_)
+                {
+                    conn->event_handle_(*conn, Event::ConnectionLost, nullptr, 0);
+                }
+            }
+            else 
+            {
+                // client read error ?
+                elog("tcp client({}) read failed, ret={}", conn->brief(), uv_strerror(nread));
+            }
+
+            // 释放空间
+            free(buf->base); 
+        });
+
+        return true;
+
     }
 
     /**
@@ -91,46 +168,11 @@ public:
     {
         if (connected_)
         {
-            uv_close((uv_handle_t *)&client_, nullptr);
+            uv_read_stop((uv_stream_t *)&client_);
             connected_ = false;
         }
-    }
 
-
-    /**
-     * @brief 启用读回调
-     * 
-     * @return true 
-     * @return false 
-     */
-    bool read_start()
-    {
-        uv_read_start((uv_stream_t*)&client_, [](uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {            
-            // 申请空间
-            buf->base = (char *)malloc(suggested_size);
-            buf->len = suggested_size;
-
-        }, [](uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf) {
-            
-            // 获得连接实例
-            auto conn = static_cast<TcpConnection*>(stream->data);
-            
-            // 调用服务端的数据处理函数
-            if (nread > 0)
-            {
-                conn->server_.on_client_receive(*conn, (unsigned char *)buf->base, nread);
-            }
-            else if (nread != UV_EOF)
-            {
-                // client read error ?
-                elog("{}: client({}) read failed, ret={}", conn->server_.get_name(), conn->brief(), uv_strerror(nread));
-            }
-
-            // 释放空间
-            free(buf->base); 
-        });
-
-        return true;
+        uv_close((uv_handle_t *)&client_, nullptr);
     }
 
     /**
@@ -138,7 +180,7 @@ public:
      * 
      * @return std::string 
      */
-    const std::string brief() const
+    std::string const brief() const
     {
         return address_ + ":" + std::to_string(port_);
     }
@@ -154,25 +196,40 @@ public:
         return connected_;
     }
 
-    // nos::network::ClientInfo client_info()
-    // {
-    //     nos::network::ClientInfo ci;
 
-    //     dlog("uptime={}", up_time_.to_time_string());
-    //     ci.address = address_;
-    //     ci.port = port_;
-    //     ci.connected = connected_;
-    //     ci.up_time = up_time_;
-    //     ci.down_time = down_time_;
+    /**
+     * @brief 发送数据到客户端
+     * 
+     * @param data 数据 
+     * @param size 长度
+     * @return int 
+     */
+    int send(unsigned char *data, int size)
+    {
+        if (connected_ && data && (size > 0))
+        {
+            uv_write_t *req = new uv_write_t;
+            uv_buf_t buf = uv_buf_init((char *)data, size);
 
-    //     dlog("ret uptime={}", ci.up_time.to_time_string());
+            int ret = uv_write(req, (uv_stream_t *)&client_, &buf, 1, [](uv_write_t *req, int status){
+                    if (status < 0)
+                    {
+                        wlog("{uv_write() callback error:{}", uv_strerror(status));
+                    }
 
-    //     return ci;
-    // }
+                    // 删除uv_write
+                    delete req;
+                });
+
+            trace("{}: uv_write(size={}) return {}", brief(), size, ret);
+            return ret;
+        }
+
+        return 0;
+    }
+
 
 private:
-    /// TCP服务端
-    TcpServer & server_;
     /// 连接对象
     uv_tcp_t client_;
     /// 连接状态
@@ -185,11 +242,14 @@ private:
     nos::system::SysTick up_time_;
     nos::system::SysTick down_time_;
     
+    /// 事件处理函数
+    EventHandle event_handle_;
+
     /**
      * @brief 更新地址信息
      * 
      */
-    void update_address_info()
+    void update_client_info()
     {
         struct sockaddr_storage addr;
         int len = sizeof(addr);
@@ -230,10 +290,10 @@ private:
  * @param port 端口
  * @param max_clients_num  最大连接数，0 不限制 
  */
-TcpServer::TcpServer(const std::string &name, 
-    const std::string &address, 
+TcpServer::TcpServer(std::string const &name, 
+    std::string const &address, 
     int port, 
-    int max_clients_num) : libuv::TcpServer(false), name_(name), address_(address), port_(port)
+    int max_clients_num) : libuv::TcpServer(libuv::Loop::Type::New), name_(name), address_(address), port_(port)
 {
     started_ = false;
 
@@ -260,7 +320,7 @@ TcpServer::~TcpServer()
  * 
  * @return const std::string& 
  */
-const std::string & TcpServer::get_name()
+std::string const & TcpServer::get_name()
 {
     return name_;
 }
@@ -271,7 +331,7 @@ const std::string & TcpServer::get_name()
  * 
  * @return const std::string& 
  */
-const std::string & TcpServer::get_brief()
+std::string const & TcpServer::get_brief()
 {
     return brief_;
 }
@@ -295,9 +355,18 @@ bool TcpServer::start()
 
     int backlog = 128;
 
-    ret = uv_listen((uv_stream_t *)&server_, backlog, [](uv_stream_t *server, int status){
+    ret = listen(backlog, [](uv_stream_t *server, int status)
+        {
             auto self = static_cast<TcpServer*>(server->data);
-            self->on_new_connection(status);            
+
+            if (status < 0)
+            {
+                elog("{}: listen callback return unexpected error: {}", self->get_name(), uv_strerror(status));
+                return ;
+            }
+            
+            // 建立一个新连接
+            self->setup_connection();      
         });
 
     if (ret != 0)
@@ -318,20 +387,27 @@ bool TcpServer::start()
 /**
  * @brief 停止TCP服务
  * 
+ * @note 实现原则， stop后，还能使用start再次运行
  */
 void TcpServer::stop()
 {
+    trace("-> TcpServer::stop()");
+
     if (started_)
     {
-        // TODO: close all connections
+        trace("-> close all connections");
         close_all_connections();
+        
+        trace("-> uv_close");
+        uv_tcp_close_reset(&server_, nullptr);
 
+        thread_exit_ = true;
         // 停止线程
-        uv_stop(get_loop());
-        // wait for thread done
+        trace("-> wait for thread exit");
         thread_.join();
 
-        started_ = false;
+        trace("-> uv_stop");
+        uv_stop(loop_);
     }
 }
 
@@ -343,11 +419,17 @@ void TcpServer::stop()
 void TcpServer::loop_thread()
 {
     started_ = true;
-    ilog("{}: loop thread started", name_);
-    // 启动UV LOOP
-    uv_run(get_loop(), UV_RUN_DEFAULT);    
 
-    wlog("{}: loop thread exited", name_);    
+    thread_exit_ = false;
+
+    trace("{}: loop thread started", name_);
+    // 启动UV LOOP
+    while (!thread_exit_)
+    {
+        uv_run(loop_, UV_RUN_NOWAIT);    
+    }
+
+    trace("{}: loop thread exited", name_);    
 
     started_ = false;
 }
@@ -368,37 +450,45 @@ void TcpServer::close_all_connections()
 /**
  * @brief 处理新连接
  * 
- * @param status 
  */
-void TcpServer::on_new_connection(int status)
+void TcpServer::setup_connection()
 {
-    if (status < 0)
-    {
-        elog("{}: connection callback error: {}", name_, uv_strerror(status));
-        return ;
-    }
+    auto conn = std::make_unique<TcpConnection>(get_loop(), 
+        [this](TcpConnection &connection, TcpConnection::Event event, unsigned char *data, int size){
 
-    auto conn = std::make_unique<TcpConnection>(*this);
+            dlog("{}: client({}) event: {}", name_, connection.brief(), static_cast<int>(event));
 
-    if (conn->accept((uv_stream_t *)&server_))
+            if (event == TcpConnection::Event::ConnectionLost)
+            {
+                wlog("{}: connection({}) lost, removed", name_, connection.brief());
+
+                auto it = std::find_if(connections_.begin(), connections_.end(), [&connection](const std::unique_ptr<TcpConnection>& conn) {
+                        return conn->brief() == connection.brief();
+                    });
+
+                if (it != connections_.end())
+                {
+                    dlog("find connection({}), remove it", connection.brief());
+                    connections_.erase(it);
+                }
+            }
+            else if (event == TcpConnection::Event::ReadAvailable) 
+            {
+                connection.send(data, size);
+            }
+        }
+    );
+
+    if (conn->accept(name_, server_))
     {
-        // 启动读操作
-        conn->read_start();
         // 添加到连接列表
-        connections_.emplace_back(std::move(conn));
-    }
-}
+        std::string const & client = conn->brief();
 
-/**
- * @brief 当从客户端接收到数据时
- * 
- * @param conn 
- * @param buf 
- * @param size 
- */
-void TcpServer::on_client_receive(TcpConnection &conn, unsigned char *buf, ssize_t size)
-{
-    dlog("{}: read {} bytes from client({})", name_, size, conn.brief());
+        connections_.emplace_back(std::move(conn));
+
+        // give a log
+        ilog("{}: new connection({}) added, total: {}", name_, client, connections_.size());
+    }
 }
 
 

@@ -28,40 +28,31 @@ int main(int argc, const char *argv[])
     nos::logger_init(APP_NAME, spdlog::level::trace);
     ilog(APP_NAME " started, build time: {} {}", __DATE__, __TIME__);
 
-    nos::libuv::RunLoop loop(nos::libuv::LoopType::New);
+    nos::libuv::Loop loop(nos::libuv::Loop::Type::New);
 
+    auto signal_handle = [](nos::libuv::Loop &loop, int signum){
+            trace("-> handle {}", signum);
+            loop.stop();
+        };
 
-    // nos::network::TcpServer tcp("test");
+    loop.signal(SIGINT, signal_handle);
+    loop.signal(SIGTERM, signal_handle);
+    loop.signal(SIGKILL, signal_handle);
 
-    // tcp.start();
+    nos::network::TcpServer tcp("test", "0.0.0.0", 9702);
 
-    // nos::libuv::Timer timer(loop());
+    tcp.start();
 
-    // timer.start(1000, 1000, nullptr, [](nos::libuv::Timer &timer, void *data)
-    //     {
-    //         ilog("do nothing");
-    //     });
+    // nos::libuv::Timer timer(loop.get());
+
+    // timer.start(10000, 1000, [&tcp](nos::libuv::Timer &timer){
+    //         ilog("timer up");
+    //         tcp.stop();
+    //      });
 
     loop.spin();
 
-    //ilog("try to stop tcp");
-
-    //tcp.stop();
-
-    // nos::network::TcpServer server;
-
-    // server.test();
-
-
-
-    // //nos::libuv::RunLoop loop(true);
-    // auto loop = std::make_unique<nos::libuv::RunLoop>(true);
-
-    // nos::network::TcpServer server(loop->get_loop(), "0.0.0.0", 9900);
-    // nos::network::TcpServer server1(loop->get_loop(), "0.0.0.0", 9901);
-    // server.start();
-    // server1.start();
-
+    tcp.stop();
 
     elog(APP_NAME " exited");
 
