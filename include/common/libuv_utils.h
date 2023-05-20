@@ -15,8 +15,13 @@
 
 #include <string>
 #include <iostream>
+#include <functional>
+#include <map>
+
+#include <common/logger.h>
 
 #include <uv.h>
+
 
 namespace nos
 {
@@ -24,26 +29,31 @@ namespace libuv
 {
 
 /**
- * @brief 建立LOOP的类型
+ * @brief Runnloop
  * 
  */
-enum class LoopType : int {
-    Default = 0,
-    New,
-};
-
-enum class RunMode : int 
-{
-    Default = 0,
-    Once,
-    NoWait,
-};
-
-
-class RunLoop 
+class Loop 
 {
 
 public:
+
+    /// 类型
+    enum class Type : int {
+        Default = 0,
+        New,
+    };
+
+    /// 运行模式
+    enum class RunMode : int 
+    {
+        Default = 0,
+        Once,
+        NoWait,
+    };
+
+    /// 定义一个信号回调函数
+    typedef std::function<void(Loop &, int)> SignalFunction;
+
     /**
      * @brief 创建一个LOOP
      * 
@@ -51,82 +61,52 @@ public:
      * 
      * @note 使用 explict 修饰，避免隐式转换 如: RunLoop a = LoopType::Default  将报错
      */
-    explicit
-    RunLoop(LoopType type = LoopType::Default) 
+    //explicit
+    Loop(Type type = Type::Default) 
     {
-        if (type == LoopType::Default)
+        if (type == Type::Default)
         {
             loop_ = uv_default_loop();
+
+            trace("use default loop");
         }
         else 
         {
-            loop_ = uv_loop_new();
+            loop_ = new uv_loop_t;
 
             // 初始化loop
             uv_loop_init(loop_);
+
+            trace("create new loop success");
         }
-
-        // TODO: to support more signals
-
-        uv_signal_init(loop_, &signal_);
-
-        uv_signal_start(&signal_, [](uv_signal_t *handle, int signum){
-            std::cout << "***Receive signal: " << signum << std::endl;
-            // 停止loop
-            uv_stop(handle->loop);    
-
-            trace("call uv_stop() done");
-
-        }, SIGINT);
 
     }
 
-    ~RunLoop()
+    ~Loop()
     {
-        // 停止信号
-        int ret = uv_signal_stop(&signal_);
-        trace("call uv_signal_stop() return {}", uv_strerror(ret));
 
-        // if (loop_ != uv_default_loop())
-        // {
-        //     trace("not a default loop");
+        uv_loop_close(loop_);
 
-        //     // 关闭loop
-        //     uv_loop_close(loop_);
-
-        //     trace("--> uv_loop_delete");
-        //     uv_loop_delete(loop_);
-        //     trace("<-- uv_loop_delete");
-
-        // }
-
-        trace("--> uv_loop_delete");
-        uv_loop_delete(loop_);
-        trace("<-- uv_loop_delete");
+        // delete the loop_
+        if (loop_ != uv_default_loop())
+        {
+            delete loop_;
+            loop_ = nullptr;
+        }
 
         trace("loop destroy");
     }
 
     // 禁止复制构造
-    RunLoop(const RunLoop &) = delete;
-    RunLoop & operator=(const RunLoop &) = delete;
-
-    /**
-     * @brief 直接返回loop
-     * 
-     * @return uv_loop_t* 
-     */
-    uv_loop_t *operator()()
-    {
-        return loop_;
-    }
+    Loop(const Loop &) = delete;
+    Loop & operator=(const Loop &) = delete;
 
     /**
      * @brief 返回loop对象
      * 
      * @return uv_loop_t* 
      */
-    uv_loop_t *get_loop()
+    uv_loop_t *get()
     {
         return loop_;
     }    
@@ -138,7 +118,9 @@ public:
      */
     void run(RunMode mode)
     {
-        uv_run(loop_, (uv_run_mode)mode);
+        int ret = uv_run(loop_, (uv_run_mode)mode);
+
+        trace("uv_run(mode={}) return {}", static_cast<int>(mode), ret);
     }
 
     /**
@@ -147,25 +129,102 @@ public:
      */
     void spin()
     {
-        uv_run(loop_, UV_RUN_DEFAULT);
+        int ret = uv_run(loop_, UV_RUN_DEFAULT);
+        trace("uv_run(spin) return {}", ret);
+    }
+
+    /**
+     * @brief 停止loop
+     * 
+     */
+    void stop()
+    {
+        // 停止信号
+        for (auto &s : signals_)
+        {
+            auto signal = s.second.get();
+            // stop it
+            trace("--> uv_signal_stop({})", signal->signum);
+            uv_signal_stop(&signal->object);
+        }
+
+        uv_stop(loop_);
+    }
+
+    /**
+     * @brief 注册信号处理函数
+     * 
+     * @param signum 
+     * @param function 
+     * @return true 
+     * @return false 
+     */
+    bool signal(int signum, SignalFunction function)
+    {
+        auto check = signals_.find(signum);
+        if (check != signals_.end())
+        {
+            wlog("signal({}) already exist", signum);
+            return false;
+        }
+
+        auto signal = std::make_unique<Signal>();
+        signal->signum = signum;
+        signal->function = function;
+
+        // 开始初始化
+        uv_signal_init(loop_, &signal->object);
+        signal->object.data = this;
+
+        uv_signal_start(&signal->object, [](uv_signal_t *handle, int signum){
+
+            trace("***Receive signal: {}", signum);
+
+            Loop *lp =  reinterpret_cast<Loop*>(handle->data);
+            //Loop *l = (Loop *)handle->data;
+            auto signal = *(lp->signals_[signum]);
+            if (signal.function)
+            {
+                signal.function(*lp, signum);
+            }
+
+        }, signum);  
+
+        // insert to map
+        signals_.insert(std::make_pair(signum, std::move(signal)));
+
+        trace("signal:{} registered", signum);
+
+        return true;
     }
 
 private:
+
+    struct Signal
+    {
+        int signum;
+        SignalFunction function;
+        uv_signal_t object;
+    };
+
     uv_loop_t *loop_;  
-    uv_signal_t signal_; 
+
+    /// 信号处理队列
+    std::map<int, std::unique_ptr<Signal>> signals_; 
 };
 
-// 声明定时器
-class Timer;
-
-// 定义一个定时器回调函数类型
-typedef void(*TimerFunction)(Timer &timer, void *data);
 
 class Timer
 {
 
 public:
-    Timer(uv_loop_t *loop) : data_(nullptr), function_(nullptr)
+
+    /// 定义一个信号回调函数
+    typedef std::function<void(Timer &)> Function;
+
+    /// 构造函数
+    /// @param loop 
+    Timer(uv_loop_t *loop) : function_(nullptr)
     {
         if (loop == nullptr)
         {
@@ -187,7 +246,7 @@ public:
     {
         if (function_)
         {
-            function_(*this, data_);
+            function_(*this);
         }
     }
 
@@ -196,17 +255,15 @@ public:
      * 
      * @param delay_ms 延时时间
      * @param period_ms 周期时间
-     * @param data 传递给回调函数的数据
      * @param function 回调函数
      */
-    void start(int delay_ms, int period_ms, void *data, TimerFunction function)
+    void start(int delay_ms, int period_ms, Function function)
     {
-        data_ = data;
         function_ = function;
 
         uv_timer_start(&timer_, [](uv_timer_t *handle)
             {
-                auto timer = static_cast<Timer *>(handle->data);
+                auto timer = reinterpret_cast<Timer *>(handle->data);
                 if (timer != nullptr)
                 {
                     timer->call_function();
@@ -226,8 +283,7 @@ public:
 
 private:
     uv_timer_t timer_;   
-    void *data_;
-    TimerFunction function_;
+    Function function_;
 };
 
 
@@ -246,40 +302,37 @@ public:
      * @param address TCP地址 
      * @param port TCP端口
      */
-    TcpServer(bool default_loop)
+    TcpServer(Loop::Type type = Loop::Type::Default)
     {
-        if (default_loop)
+        if (type == Loop::Type::Default)
         {
             loop_ = uv_default_loop();
         } 
         else 
         {
             // 创建一个新的端口
-            loop_ = uv_loop_new();
+            loop_ = new uv_loop_t;
 
             // 初始化loop
             uv_loop_init(loop_);
-        }
-
-        // 初始化一个TCP的服务
-        uv_tcp_init(loop_, &server_);        
+        }   
     }
 
     ~TcpServer()
     {
-        // 关闭端口
-        uv_close((uv_handle_t *)&server_, nullptr);
+        uv_loop_close(loop_);
 
+        // 关闭loop
         if (loop_ != uv_default_loop())
         {
-            uv_loop_close(loop_);
-            uv_loop_delete(loop_);
+            delete loop_;
         }
     }
 
     // 禁止复制构造
     TcpServer(const TcpServer &) = delete;
     TcpServer & operator=(const TcpServer &) = delete;
+
 
 protected:
     uv_loop_t *loop_;
@@ -307,6 +360,10 @@ protected:
     int bind(const std::string &ip, int port)
     {
         struct sockaddr_in addr;        
+     
+        // 初始化一个TCP的服务
+        uv_tcp_init(loop_, &server_);     
+     
         uv_ip4_addr(ip.c_str(), port, &addr);        
         return uv_tcp_bind(&server_, (const struct sockaddr *)&addr, 0);
     }    
