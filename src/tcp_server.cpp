@@ -26,6 +26,13 @@ namespace nos
 namespace network
 {
 
+
+/**
+ * @brief 创建一个常量，表示所有主机，发送时使用
+ * 
+ */
+const Host TcpServer::AllClients {"", 0};
+
 /**
  * @brief TCP 连接对象
  * 
@@ -46,7 +53,7 @@ public:
     enum class Event : int {ReadAvailable = 0, ConnectionLost};
 
     /// 事件回调函数 
-    typedef std::function<void(TcpConnection &, Event, unsigned char *, int)> EventHandle;
+    typedef std::function<void(TcpConnection &, Event, uint8_t const * const , int)> EventHandle;
 
     /**
      * @brief 创建一个TCP连接
@@ -112,7 +119,7 @@ public:
         // 获取地址及端口信息
         update_client_info();            
         
-        ilog("{}: connection({}) accept success", server_name, brief());
+        dlog("{}: connection({}) accept success", server_name, brief());
 
         // 启动读函数
         uv_read_start((uv_stream_t*)&client_, [](uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {            
@@ -128,8 +135,9 @@ public:
             // 如果有回调函数
             // 调用服务端的数据处理函数
             if (nread > 0)
-            {
-                trace("{}: read {} bytes", conn->brief(), nread);
+            {                
+                trace("receive {} bytes from ({}): {:X}", nread, conn->brief(), spdlog::to_hex((const unsigned char *)buf->base, (const unsigned char *)buf->base + nread, 16));
+
                 if (conn->event_handle_)
                 {
                     conn->event_handle_(*conn, Event::ReadAvailable, (unsigned char *)buf->base,  static_cast<int>(nread));
@@ -140,7 +148,7 @@ public:
                 conn->connected_ = false;
                 conn->down_time_ = nos::system::uptime();
 
-                wlog("tcp client({}) connection lost", conn->brief());
+                dlog("tcp client({}) connection lost", conn->brief());
                 if (conn->event_handle_)
                 {
                     conn->event_handle_(*conn, Event::ConnectionLost, nullptr, 0);
@@ -207,6 +215,16 @@ public:
     }
 
     /**
+     * @brief 返回一个主机对象
+     * 
+     * @return Host const 
+     */
+    Host const get_host() const 
+    {
+        return Host{address_, port_};
+    }
+
+    /**
      * @brief 获取客户端信息
      * 
      * @param info 
@@ -220,12 +238,6 @@ public:
         info.connected = connected_;
     }
 
-    // ClientInfo const client_info()
-    // {
-    //     return ClientInfo{.address = address_, .connected = connected_, .port = port_, .up_time = up_time_, .down_time = down_time_};
-    // }
-
-
     /**
      * @brief 发送数据到客户端
      * 
@@ -233,12 +245,14 @@ public:
      * @param size 长度
      * @return int 
      */
-    int send(unsigned char *data, int size)
+    int send(const uint8_t * const data, int size)
     {
         if (connected_ && data && (size > 0))
         {
             uv_write_t *req = new uv_write_t;
             uv_buf_t buf = uv_buf_init((char *)data, size);
+
+            trace("send {} bytes to ({}): {:X}", size, brief(), spdlog::to_hex(data, data + size, 16));
 
             int ret = uv_write(req, (uv_stream_t *)&client_, &buf, 1, [](uv_write_t *req, int status){
                     if (status < 0)
@@ -257,6 +271,21 @@ public:
         return 0;
     }
 
+    /**
+     * @brief 发送一个数据帧
+     * 
+     * @param frame 
+     * @return int 
+     */
+    int send(DataFrame const &frame)
+    {
+        if (frame.is_empty())
+        {
+            return 0;
+        }
+
+        return send(frame.data_pointer(), frame.size());        
+    }
 
 private:
     /// 连接对象
@@ -331,6 +360,8 @@ TcpServer::TcpServer(std::string const &name,
 
     // 设置brief
     brief_ = address_ + ":" + std::to_string(port_);
+
+    dlog("create tcp server({}) with {}", name_, brief_);
 }
 
 
@@ -420,14 +451,22 @@ bool TcpServer::start()
  */
 void TcpServer::stop()
 {
-    trace("-> TcpServer::stop()");
 
     if (started_)
     {
-        trace("-> close all connections");
         close_all_connections();
-        
-        trace("-> uv_close");
+
+        // 清空接收和发送FIFO
+        {
+            std::lock_guard<std::mutex> lock(rx_mutex_);
+            decltype(rx_frames_)().swap(rx_frames_);
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(tx_mutex_);
+            decltype(tx_frames_)().swap(tx_frames_);
+        }
+
         uv_tcp_close_reset(&server_, nullptr);
 
         thread_exit_ = true;
@@ -435,11 +474,21 @@ void TcpServer::stop()
         trace("-> wait for thread exit");
         thread_.join();
 
-        trace("-> uv_stop");
         uv_stop(loop_);
     }
 }
 
+
+/**
+ * @brief TCP服务是否正在运行中
+ * 
+ * @return true 
+ * @return false 
+ */
+bool TcpServer::is_running()
+{
+    return started_;
+}
 
 /**
  * @brief LOOP 线程
@@ -455,7 +504,62 @@ void TcpServer::loop_thread()
     // 启动UV LOOP
     while (!thread_exit_)
     {
-        uv_run(loop_, UV_RUN_NOWAIT);    
+        uv_run(loop_, UV_RUN_NOWAIT);   
+
+        // 检查发送队列，是否有数据需要发送
+        bool tx_available = false;
+
+        {
+            std::lock_guard<std::mutex> lock(tx_mutex_);
+            tx_available = !tx_frames_.empty();
+        }
+
+        if (tx_available)
+        {
+            DataFrame frame(0);
+            int tx_pending = 0;
+
+            {
+                std::lock_guard<std::mutex> lock(tx_mutex_);                
+                frame = std::move(tx_frames_.front());
+                tx_frames_.pop();                    
+                tx_pending = tx_frames_.size();
+            }
+
+            dlog("{}: pop tx frame-{}, pending:{}", name_, frame.id(), tx_pending);
+                        
+            if (!frame.is_empty())
+            {
+                Host const & host = frame.get_host();
+
+                // 如果port 为0，表示发给所有的客户端
+                if (host.port == 0)
+                {
+                    for (auto &it : connections_)
+                    {
+                        dlog("{}: send frame-{} to host:{}", name_, frame.id(), (*it).brief());
+                        (*it).send(frame);
+                    }
+                }
+                else 
+                {
+                    // 从连接中找到这个客户端
+                    auto it = std::find_if(connections_.begin(), connections_.end(), [&](const std::unique_ptr<TcpConnection>& conn) {
+                        return (((*conn).get_address() == host.address) && ((*conn).get_port() == host.port)); 
+                    });
+
+                    if (it != connections_.end())
+                    {
+                        dlog("{}: send frame-{} to host:{}", name_, frame.id(), it->get()->brief());
+                        it->get()->send(frame);                    
+                    }
+                    else 
+                    {
+                        wlog("{}: send failed, not such host({}:{})", name_, host.address, host.port);
+                    }
+                }            
+            }            
+        }
     }
 
     trace("{}: loop thread exited", name_);    
@@ -484,7 +588,7 @@ void TcpServer::setup_connection()
 {
     auto conn = std::make_unique<TcpConnection>(get_loop(), 
         // 连接事件处理函数
-        [this](TcpConnection &connection, TcpConnection::Event event, unsigned char *data, int size){
+        [this](TcpConnection &connection, TcpConnection::Event event, uint8_t const * const data, int size){
 
             dlog("{}: client({}) event: {}", name_, connection.brief(), static_cast<int>(event));
 
@@ -501,7 +605,8 @@ void TcpServer::setup_connection()
 
                 if (it != connections_.end())
                 {
-                    dlog("find connection({}), remove it", connection.brief());
+                    trace("find connection({}), remove it", connection.brief());
+
                     // 更新客户端信息
                     connection.update_client_info(get_client_info(connection.get_address(), connection.get_port()));
 
@@ -510,11 +615,13 @@ void TcpServer::setup_connection()
             }
             else if (event == TcpConnection::Event::ReadAvailable) 
             {
-                //connection.send(data, size);
-                Host host = {.address = connection.get_address(), .port = connection.get_port()};
+                // 创建一个队列 
+                DataFrame frame(connection.get_host(), data, size);
+                dlog("{}: queue rx frame-{}(size:{}, from:{}) pending:{}", name_, frame.id(), size, connection.brief(), rx_frames_.size());
 
-                // 入队列
-                rx_frames_.emplace(host, data, size);
+                // 入队列 
+                std::lock_guard<std::mutex> lock(rx_mutex_);
+                rx_frames_.emplace(std::move(frame));
             }
         }
     );
@@ -532,7 +639,7 @@ void TcpServer::setup_connection()
         connections_.emplace_back(std::move(conn));
 
         // give a log
-        ilog("{}: new connection({}) added, total: {}", name_, client, connections_.size());
+        ilog("{}: connection({}) setup success, total: {}", name_, client, connections_.size());
     }
 }
 
@@ -581,6 +688,105 @@ void TcpServer::dump_clients()
                 : nos::system::SysTick(client.down_time).to_time_string());
     }
 }
+
+/**
+ * @brief 返回当前接收的帧数量
+ * 
+ * @return int 
+ */
+int TcpServer::received_frames_num()
+{
+    std::lock_guard<std::mutex> lock(rx_mutex_);    
+    return rx_frames_.size();    
+}
+
+
+/**
+ * @brief 对队列中接收一帧数据
+ * 
+ * @return DataFrame 如果DataFrame.is_empty() 为真，表示未接收到数据
+ * @note 不使用C++17的特性
+ */
+DataFrame TcpServer::receive()
+{
+    std::lock_guard<std::mutex> lock(rx_mutex_);    
+    
+    if (rx_frames_.empty())
+    {
+        return std::move(DataFrame(0));
+    }
+
+    DataFrame frame = std::move(rx_frames_.front());
+    rx_frames_.pop();
+    
+    dlog("{}: pop rx frame-{}, pending:{}", name_, frame.id(), rx_frames_.size());
+
+    return frame;
+}
+
+/**
+ * @brief 发送数据到指定客户端
+ * 
+ * @param host 指定主机，如果host = AllClients 表示发给所有客户端
+ * @param data 需要发送的数据
+ * @param size 
+ * @return true 发送成功
+ * @return false 发送失败
+ */
+bool TcpServer::send(Host const & host, uint8_t const * const data, int size)
+{
+    if (data == nullptr || size <= 0)
+    {
+        return false;
+    }
+
+    DataFrame frame(host, data, size);
+
+    dlog("{}: queue tx frame-{}(size:{}, to:{}:{}) pending:{}", name_, frame.id(), size, host.address, host.port, tx_frames_.size());
+
+    std::lock_guard<std::mutex> lock(tx_mutex_);
+    tx_frames_.emplace(std::move(frame));
+
+    return true;
+}
+
+    /**
+ * @brief 发送一个准备好帧
+ * 
+ * @param frame 
+ * @return true 
+ * @return false 
+ */
+bool TcpServer::send(DataFrame const &frame)
+{
+    return send(frame.get_host(), frame.data_pointer(), frame.size());    
+}
+
+// /**
+//  * @brief 对队列中接收一帧数据
+//  * 
+//  * @return DataFrame 
+//  */
+// std::optional<DataFrame> TcpServer::receive()
+// {
+//     return std::nullopt;
+// }
+
+
+// /**
+//  * @brief 发送数据到指定客户端
+//  * 
+//  * @param host 指定主机，如果为std::nullopt， 表示发给所有主机
+//  * @param data 需要发送的数据
+//  * @param size 
+//  * @return true 发送成功
+//  * @return false 发送失败
+//  */
+// bool TcpServer::send(std::optional<Host> host, uint8_t const *data, int size)
+// {
+//     return false;
+// }
+
 
 
 } // network

@@ -21,7 +21,6 @@
 
 #define APP_NAME  "tcpserver"
 
-
 int main(int argc, const char *argv[])
 {
     // 先初始化日志
@@ -46,12 +45,31 @@ int main(int argc, const char *argv[])
     nos::libuv::Timer timer(loop.get());
 
     timer.start(1000, 5000, [&tcp](nos::libuv::Timer &timer){
-            tcp.dump_clients();
+            //tcp.dump_clients();
         });
 
-    loop.spin();
+    // 创建一个TCP处理线程
+    std::thread tcp_data = std::thread([&tcp](){
+        while (tcp.is_running())
+        {
+            while (tcp.received_frames_num() > 0)
+            {
+                auto f = tcp.receive();
+                if (!f.is_empty())
+                {
+                    tcp.send(f);
+                }
+            }
 
+            nos::system::mdelay(1);
+        }
+    });
+
+
+    loop.spin();
     tcp.stop();
+
+    tcp_data.join();
 
     elog(APP_NAME " exited");
 
