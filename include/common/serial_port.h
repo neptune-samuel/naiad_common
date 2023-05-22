@@ -140,7 +140,9 @@ public:
 private:
     int fd_;
     std::string path_;
-    std::string name_;        
+    std::string name_;
+    // 串口的操作锁      
+    std::mutex mutex_;  
     
     /// 保存默认配置，在关闭时恢复到默认值
     struct termios default_options_;
@@ -155,6 +157,9 @@ private:
     bool rx_thread_running_;
     /// 串口统计信息
     SerialStatistics statistics_;
+
+    int read_with_epoll(int fd, int epoll_fd, void *buf, int size, int timeout);
+    int read_with_select(int fd, void *buf, int size, int timeout);
 
 };
 

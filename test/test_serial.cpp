@@ -23,8 +23,8 @@ int main(int argc, const char *argv[])
 
     ilog(APP_NAME " started, build time: {} {}", __DATE__, __TIME__);
 
-    nos::libuv::RunLoop loop(nos::libuv::LoopType::Default);
-    nos::libuv::Timer timer(loop());
+    nos::libuv::Loop loop;
+    nos::libuv::Timer timer(loop.get());
 
     const char *dev = "/dev/ttyUSB0";
     if (argc > 1)

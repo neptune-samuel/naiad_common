@@ -142,142 +142,6 @@ static int to_sys_baudrate(int baudrate)
     return 0;
 }
 
-#if ASYNC_READ_WITH_EPOLL
-
-static int read_with_epoll(int fd, int epoll_fd, void *buf, int size, int timeout)
-{
-    if (timeout <= 0)
-    {
-        int ret = ::read(fd, buf, size);
-
-        if (ret < 0)
-        {
-            if (errno == EAGAIN)
-            {
-                ret = 0;
-            }
-            //trace("read() errno = {}", errno);
-        }
-
-        return ret;
-    }
-    else 
-    {     
-        #define MAX_EVENTS 10        
-        struct epoll_event ev, events[MAX_EVENTS];
-        int64_t expired = nos::system::uptime() + timeout;
-        int offset = 0;
-
-        while ((offset < size) && (timeout > 0))
-        {
-            int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, timeout);
-            if (nfds < 0)
-            {
-                wlog("epoll wait() error");
-                return -1;
-            }
-
-            for (int i = 0; i < nfds; ++ i)
-            {
-                if (events[i].data.fd == fd)
-                {
-                    int ret = ::read(events[i].data.fd, (unsigned char *)buf + offset, size - offset);
-                    if (ret < 0)
-                    {
-                        return ret;
-                    }
-                    else if (ret > 0)
-                    {
-                        offset += ret;
-                    }
-                }                
-            }
-
-            // 
-            timeout = expired - nos::system::uptime();
-        }
-
-        return offset;
-    }
-}
-
-#endif // ASYNC_READ_WITH_EPOLL
-
-/**
- * @brief 使用串口接收，可以设定等待时间
- * 
- * @param fd 
- * @param buf 
- * @param size 
- * @param timeout ms
- * @return int 
- */
-static int read_with_select(int fd, void *buf, int size, int timeout)
-{
-    if (timeout <= 0)
-    {
-        int ret = ::read(fd, buf, size);
-
-        if (ret < 0)
-        {
-            if (errno == EAGAIN)
-            {
-                ret = 0;
-            }
-            //trace("read() errno = {}", errno);
-        }
-
-        return ret;
-    }
-    else 
-    {      
-        struct timeval tv;
-        int offset = 0;
-        int ret = 0;
-        fd_set rfds;
-
-        tv.tv_sec = timeout / 1000;
-        tv.tv_usec = (timeout % 1000) * 1000;
-
-        while ((tv.tv_sec > 0 || tv.tv_usec > 0) && (offset < size))
-        {
-            FD_ZERO(&rfds);
-            FD_SET(fd, &rfds);
-
-            ret = select(fd + 1, &rfds, NULL, NULL, &tv);
-
-            if (ret > 0)
-            {
-                ssize_t len = ::read(fd, (unsigned char*)buf + offset, size - offset);
-
-                if (len > 0)
-                {
-                    offset += len;
-                }
-                else if (len < 0) 
-                {
-                    // 读失败，有可能串口设备文件出错？
-                    return len;
-                }
-            }
-            else if (ret == 0)
-            {
-                // timeout                
-                break;
-            }
-            else 
-            {
-                if (errno == EINTR)
-                {
-                    continue;
-                }
-                break;
-            }
-        }
-        return offset;
-    }
-}
-
 
 /// 一个串口设置示例
 struct SerialSetting
@@ -578,6 +442,144 @@ void SerialPort::flush()
     }
 }
 
+int SerialPort::read_with_epoll(int fd, int epoll_fd, void *buf, int size, int timeout)
+{
+    if (timeout <= 0)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        int ret = ::read(fd, buf, size);
+
+        if (ret < 0)
+        {
+            if (errno == EAGAIN)
+            {
+                ret = 0;
+            }
+            //trace("read() errno = {}", errno);
+        }
+
+        return ret;
+    }
+    else 
+    {     
+        #define MAX_EVENTS 10        
+        struct epoll_event ev, events[MAX_EVENTS];
+        int64_t expired = nos::system::uptime() + timeout;
+        int offset = 0;
+
+        while ((offset < size) && (timeout > 0))
+        {
+            int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, timeout);
+            if (nfds < 0)
+            {
+                wlog("epoll wait() error");
+                return -1;
+            }
+
+            for (int i = 0; i < nfds; ++ i)
+            {
+                if (events[i].data.fd == fd)
+                {
+                    std::lock_guard<std::mutex> lock(mutex_);
+                    int ret = ::read(events[i].data.fd, (unsigned char *)buf + offset, size - offset);
+                    if (ret < 0)
+                    {
+                        return ret;
+                    }
+                    else if (ret > 0)
+                    {
+                        offset += ret;
+                    }
+                }                
+            }
+
+            // 
+            timeout = expired - nos::system::uptime();
+        }
+
+        return offset;
+    }
+}
+
+/**
+ * @brief 使用串口接收，可以设定等待时间
+ * 
+ * @param fd 
+ * @param buf 
+ * @param size 
+ * @param timeout ms
+ * @return int 
+ */
+int SerialPort::read_with_select(int fd, void *buf, int size, int timeout)
+{
+    if (timeout <= 0)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        int ret = ::read(fd, buf, size);
+
+        if (ret < 0)
+        {
+            if (errno == EAGAIN)
+            {
+                ret = 0;
+            }
+            //trace("read() errno = {}", errno);
+        }
+
+        return ret;
+    }
+    else 
+    {      
+        struct timeval tv;
+        int offset = 0;
+        int ret = 0;
+        fd_set rfds;
+
+        tv.tv_sec = timeout / 1000;
+        tv.tv_usec = (timeout % 1000) * 1000;
+
+        while ((tv.tv_sec > 0 || tv.tv_usec > 0) && (offset < size))
+        {
+            FD_ZERO(&rfds);
+            FD_SET(fd, &rfds);
+
+            ret = select(fd + 1, &rfds, NULL, NULL, &tv);
+
+            if (ret > 0)
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                ssize_t len = ::read(fd, (unsigned char*)buf + offset, size - offset);
+
+                if (len > 0)
+                {
+                    offset += len;
+                }
+                else if (len < 0) 
+                {
+                    // 读失败，有可能串口设备文件出错？
+                    return len;
+                }
+            }
+            else if (ret == 0)
+            {
+                // timeout                
+                break;
+            }
+            else 
+            {
+                if (errno == EINTR)
+                {
+                    continue;
+                }
+                break;
+            }
+        }
+        return offset;
+    }
+}
+
+
 
 int SerialPort::read(void *buf, int size, int timeout)
 {
@@ -613,7 +615,8 @@ int SerialPort::write(const void *buf, int size)
     int retry = 10;
     do 
     {
-
+        std::lock_guard<std::mutex> lock(mutex_);
+    
         ret = ::write(fd_, (unsigned char*)buf + offset, size - offset);  
 
         if (ret > 0)

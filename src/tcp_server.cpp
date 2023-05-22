@@ -196,6 +196,35 @@ public:
         return connected_;
     }
 
+    std::string const & get_address() const 
+    {
+        return address_;
+    }
+
+    int get_port() const 
+    {
+        return port_;
+    }
+
+    /**
+     * @brief 获取客户端信息
+     * 
+     * @param info 
+     */
+    void update_client_info(ClientInfo &info)
+    {
+        info.address = address_;
+        info.port = port_;
+        info.up_time = up_time_;
+        info.down_time = down_time_;
+        info.connected = connected_;
+    }
+
+    // ClientInfo const client_info()
+    // {
+    //     return ClientInfo{.address = address_, .connected = connected_, .port = port_, .up_time = up_time_, .down_time = down_time_};
+    // }
+
 
     /**
      * @brief 发送数据到客户端
@@ -320,7 +349,7 @@ TcpServer::~TcpServer()
  * 
  * @return const std::string& 
  */
-std::string const & TcpServer::get_name()
+std::string const & TcpServer::name()
 {
     return name_;
 }
@@ -331,7 +360,7 @@ std::string const & TcpServer::get_name()
  * 
  * @return const std::string& 
  */
-std::string const & TcpServer::get_brief()
+std::string const & TcpServer::brief()
 {
     return brief_;
 }
@@ -361,7 +390,7 @@ bool TcpServer::start()
 
             if (status < 0)
             {
-                elog("{}: listen callback return unexpected error: {}", self->get_name(), uv_strerror(status));
+                elog("{}: listen callback return unexpected error: {}", self->name(), uv_strerror(status));
                 return ;
             }
             
@@ -454,6 +483,7 @@ void TcpServer::close_all_connections()
 void TcpServer::setup_connection()
 {
     auto conn = std::make_unique<TcpConnection>(get_loop(), 
+        // 连接事件处理函数
         [this](TcpConnection &connection, TcpConnection::Event event, unsigned char *data, int size){
 
             dlog("{}: client({}) event: {}", name_, connection.brief(), static_cast<int>(event));
@@ -463,18 +493,28 @@ void TcpServer::setup_connection()
                 wlog("{}: connection({}) lost, removed", name_, connection.brief());
 
                 auto it = std::find_if(connections_.begin(), connections_.end(), [&connection](const std::unique_ptr<TcpConnection>& conn) {
-                        return conn->brief() == connection.brief();
+                        // 使用brief()这个不可靠
+                        //return conn->brief() == connection.brief();
+                        // 使用指针指向它比较好
+                        return conn.get() == &connection;
                     });
 
                 if (it != connections_.end())
                 {
                     dlog("find connection({}), remove it", connection.brief());
+                    // 更新客户端信息
+                    connection.update_client_info(get_client_info(connection.get_address(), connection.get_port()));
+
                     connections_.erase(it);
                 }
             }
             else if (event == TcpConnection::Event::ReadAvailable) 
             {
-                connection.send(data, size);
+                //connection.send(data, size);
+                Host host = {.address = connection.get_address(), .port = connection.get_port()};
+
+                // 入队列
+                rx_frames_.emplace(host, data, size);
             }
         }
     );
@@ -484,10 +524,61 @@ void TcpServer::setup_connection()
         // 添加到连接列表
         std::string const & client = conn->brief();
 
+        // 更新客户端信息
+        //ClientInfo info;
+        conn->update_client_info(get_client_info(conn->get_address(), conn->get_port()));
+        
+        // 加入容器
         connections_.emplace_back(std::move(conn));
 
         // give a log
         ilog("{}: new connection({}) added, total: {}", name_, client, connections_.size());
+    }
+}
+
+/**
+ * @brief 获取一个客户端信息对象
+ * 
+ * @param address 
+ * @param port 
+ * @return ClientInfo& 
+ */
+ClientInfo & TcpServer::get_client_info(std::string const & address, int port)
+{
+    // 查找这个客户端在不在，如果不在就创建一个新的。    
+    auto it = std::find_if(clients_.begin(), clients_.end(), [&](const std::unique_ptr<ClientInfo>& client) {
+            return (((*client).address == address) && ((*client).port == port)); 
+        });
+    
+    if (it != clients_.end())
+    {
+        return *(it->get());
+    }
+
+    // 没有找到，创建一个新的
+    auto client = std::make_unique<ClientInfo>();
+    (*client).address = address;
+    (*client).port = port;
+
+    ClientInfo & ret = *client;
+    clients_.emplace_back(std::move(client));
+
+    return ret;
+}
+
+/**
+ * @brief 以info级别显示客户端状态信息
+ * 
+ */
+void TcpServer::dump_clients()
+{
+    for (auto &it : clients_)
+    {
+        auto &client = *it;
+        ilog("{}: {}:{} {} at {}", name_, client.address, client.port, 
+            client.connected ? "connected" : "disconnected", 
+            client.connected ? nos::system::SysTick(client.up_time).to_time_string() \
+                : nos::system::SysTick(client.down_time).to_time_string());
     }
 }
 

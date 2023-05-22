@@ -2,6 +2,17 @@
 #ifndef __NOS_NETWORK_CLIENT_H__
 #define __NOS_NETWORK_CLIENT_H__
 
+/**
+ * @file network_client.h
+ * @author Liu Chuansen (179712066@qq.com)
+ * @brief 定义一些通用的网络客户端类型
+ * @version 0.1
+ * @date 2023-05-21
+ * 
+ * @copyright Copyright (c) 2023
+ * 
+ */
+
 #include <string>
 #include <common/sys_time.h>
 
@@ -25,6 +36,16 @@ struct ClientInfo
     nos::system::SysTick up_time;
     /// 断开时间
     nos::system::SysTick down_time;
+};
+
+/**
+ * @brief 一个网络主机
+ * 
+ */
+struct Host
+{
+    std::string address;
+    int port;
 };
 
 

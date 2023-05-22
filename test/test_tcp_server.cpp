@@ -43,12 +43,11 @@ int main(int argc, const char *argv[])
 
     tcp.start();
 
-    // nos::libuv::Timer timer(loop.get());
+    nos::libuv::Timer timer(loop.get());
 
-    // timer.start(10000, 1000, [&tcp](nos::libuv::Timer &timer){
-    //         ilog("timer up");
-    //         tcp.stop();
-    //      });
+    timer.start(1000, 5000, [&tcp](nos::libuv::Timer &timer){
+            tcp.dump_clients();
+        });
 
     loop.spin();
 
