@@ -178,7 +178,7 @@ public:
 
         uv_signal_start(&signal->object, [](uv_signal_t *handle, int signum){
 
-            trace("***Receive signal: {}", signum);
+            std::cout << "***Receive signal: " << signum << std::endl;
 
             Loop *lp =  reinterpret_cast<Loop*>(handle->data);
             //Loop *l = (Loop *)handle->data;

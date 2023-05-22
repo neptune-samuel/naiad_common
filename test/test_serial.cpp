@@ -19,7 +19,7 @@
 int main(int argc, const char *argv[])
 {
     // 先初始化日志
-    nos::logger_init(APP_NAME, spdlog::level::trace);
+    nos::log::logger_init(APP_NAME, nos::log::LogLevel::Debug);
 
     ilog(APP_NAME " started, build time: {} {}", __DATE__, __TIME__);
 

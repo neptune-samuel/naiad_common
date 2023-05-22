@@ -15,10 +15,14 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 
+#include <common/logger.h>
+
 
 namespace nos 
 {
 
+namespace log
+{
 /**
  * @brief 初始化logger
  * 
@@ -28,7 +32,7 @@ namespace nos
  * @param file_size 日志文件最大大小, 默认为1MB
  * @param file_num  日志文件回滚数量 默认为2个
  */
-void logger_init(const std::string &logger_name, spdlog::level::level_enum log_level, const std::string &file_path, int file_size = 1024 * 1024, int file_num = 2)
+void logger_init(const std::string &logger_name, LogLevel log_level, const std::string &file_path, int file_size, int file_num)
 {
     std::vector<spdlog::sink_ptr> sinks;
 
@@ -45,7 +49,7 @@ void logger_init(const std::string &logger_name, spdlog::level::level_enum log_l
 
     auto logger = std::make_shared<spdlog::logger>(logger_name, begin(sinks), end(sinks));
     
-    logger->set_level(log_level);
+    logger->set_level(static_cast<spdlog::level::level_enum>(log_level));
 
     spdlog::register_logger(logger);
     spdlog::set_default_logger(logger);
@@ -59,12 +63,12 @@ void logger_init(const std::string &logger_name, spdlog::level::level_enum log_l
  * @param log_level 
  * @param log_to_file 
  */
-void logger_init(const std::string &logger_name, spdlog::level::level_enum log_level, bool log_to_file = false)
+void logger_init(const std::string &logger_name, LogLevel log_level, bool log_to_file)
 {
     std::string log_path = log_to_file ? ("logs" + logger_name + ".log") : "";
 
     logger_init(logger_name, log_level, log_path);
 }
 
-
+} // end log
 } // end nos

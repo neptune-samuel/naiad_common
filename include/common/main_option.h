@@ -62,6 +62,18 @@ public:
     }
 
     /**
+     * @brief 返回选项是否有值，如果未指定的选项而且未设定默认值时，选项为空，将返回false
+     * 
+     * @param option 
+     * @return true 
+     * @return false 
+     */
+    bool test_option(const std::string &option)
+    {
+        return args_[option] ? true : false;
+    }
+
+    /**
      * @brief 返回一个bool的参数
      * 
      * @param option 
@@ -70,7 +82,14 @@ public:
      */
     bool get_bool(const std::string &option)
     {
-        return args_[option].asBool();
+        if (args_[option])
+        {
+            return args_[option].asBool();
+        }
+        else 
+        {
+            return false;
+        }
     }
 
     /**
@@ -80,8 +99,8 @@ public:
      * @return int 
      */
     int get_int(const std::string &option)
-    {
-        return static_cast<int>(args_[option].asLong());
+    {        
+        return (args_[option] ? static_cast<int>(args_[option].asLong()) : 0);
     }
 
     /**
@@ -92,7 +111,8 @@ public:
      */
     const std::string &get_string(const std::string &option)
     {
-        return args_[option].asString();
+        static const std::string empty("");
+        return args_[option] ? args_[option].asString() : empty;
     }
 
 protected:

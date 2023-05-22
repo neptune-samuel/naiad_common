@@ -18,6 +18,21 @@
 namespace nos
 {
 
+namespace log
+{
+
+enum class LogLevel: int 
+{
+    Trace = spdlog::level::trace,
+    Debug = spdlog::level::debug,
+    Info = spdlog::level::info,
+    Warning = spdlog::level::warn,
+    Error = spdlog::level::err,
+    Off = spdlog::level::off,
+    // 一些错误定义
+    None = spdlog::level::n_levels
+};
+
 /**
  * @brief 初始化logger
  * 
@@ -27,7 +42,7 @@ namespace nos
  * @param file_size 日志文件最大大小
  * @param file_num  日志文件回滚数量
  */
-void logger_init(const std::string &logger_name, spdlog::level::level_enum log_level, const std::string &file_path, int file_size = 1024 * 1024, int file_num = 2);
+void logger_init(const std::string &logger_name, LogLevel log_level, const std::string &file_path, int file_size = 1024 * 1024, int file_num = 2);
 
 /**
  * @brief 初始化日志，使用默认文件名，默认关闭文件日志
@@ -36,7 +51,9 @@ void logger_init(const std::string &logger_name, spdlog::level::level_enum log_l
  * @param log_level 日志等级
  * @param log_to_file 是否启用文件日志
  */
-void logger_init(const std::string &logger_name, spdlog::level::level_enum log_level, bool log_to_file = false);
+void logger_init(const std::string &logger_name, LogLevel log_level, bool log_to_file = false);
+
+} // end log
 
 } // end nos
 
