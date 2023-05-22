@@ -4,7 +4,7 @@
 ## 
 ## 
 MACHINE=$(shell uname -m)
-INSTALL_DIR:=$(shell pwd)/local-install/${MACHINE}
+LIBS_INSTALL_DIR:=$(shell pwd)/libs-install/${MACHINE}
 BUILD_TOOL:=$(shell pwd)/tools/build-libs.py 
 
 .PHONY: all libs clean build install
@@ -22,7 +22,7 @@ install:
 	@cd build && cmake --install .
 
 libs:
-	${BUILD_TOOL} ${INSTALL_DIR}
+	${BUILD_TOOL} ${LIBS_INSTALL_DIR}
 
 clean:
 	@rm -rf build 

@@ -13,6 +13,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
 
+set(LIBS_INSTALL_DIR ${PROJECT_SOURCE_DIR}/libs-install/${CMAKE_SYSTEM_PROCESSOR})
 set(LOCAL_INSTALL_DIR ${PROJECT_SOURCE_DIR}/local-install/${CMAKE_SYSTEM_PROCESSOR})
 
 message(STATUS "=> Local install at ${LOCAL_INSTALL_DIR}")
@@ -21,7 +22,7 @@ message(STATUS "=> Local install at ${LOCAL_INSTALL_DIR}")
 # 它可以被find_package()、find_program()、find_library()、find_file()和find_path()等命令使用。
 # 这些命令将根据自己的文档添加bin、lib或include等子目录。CMAKE_PREFIX_PATH可以包含单个前缀或多个前缀，
 # UNIX上用冒号分隔，Windows上用分号分隔。默认情况下，它为空。它旨在由项目设置。
-set(CMAKE_PREFIX_PATH ${LOCAL_INSTALL_DIR})
+set(CMAKE_PREFIX_PATH ${LIBS_INSTALL_DIR})
 
 find_package(libuv REQUIRED)
 find_package(spdlog REQUIRED)
@@ -38,10 +39,10 @@ set(CMAKE_INSTALL_PREFIX ${LOCAL_INSTALL_DIR})
 ## set default include folder
 include_directories(
     ${PROJECT_SOURCE_DIR}/include
-    ${LOCAL_INSTALL_DIR}/include
+    ${LIBS_INSTALL_DIR}/include
     )
 ## add local libs dir
-link_directories(${LOCAL_INSTALL_DIR}/lib)
+link_directories(${LIBS_INSTALL_DIR}/lib)
 
 ## add src 
 add_subdirectory(src)
@@ -50,7 +51,7 @@ add_subdirectory(src)
 add_subdirectory(test)
 
 ## 添加一上自定义目标，编译所有依赖库
-add_custom_target(build_libs COMMAND python3 ${PROJECT_SOURCE_DIR}/tools/build-libs.py ${CMAKE_INSTALL_PREFIX})
+#add_custom_target(build_libs COMMAND python3 ${PROJECT_SOURCE_DIR}/tools/build-libs.py ${CMAKE_INSTALL_PREFIX})
 ## 生成一个版本 - 
 #add_custom_command(TARGET install POST_BUILD COMMAND ${PROJECT_SOURCE_DIR}/tools/setlocalversion ${PROJECT_SOURCE_DIR} > ${LOCAL_INSTALL_DIR}/version)
 #
