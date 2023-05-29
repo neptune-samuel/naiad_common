@@ -67,6 +67,12 @@ static inline void mdelay(int ms)
     std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
 
+class SysTick;
+class SysTime;
+
+static inline int64_t time_diff(const SysTick & a, const SysTick & b);
+static inline int64_t time_diff(const SysTime & a, const SysTime & b);
+
 /**
  * @brief 一个系统时钟
  * 
@@ -101,7 +107,7 @@ public:
         return std::string(buf);
     }
 
-    int64_t get_millisecond()
+    int64_t get_ms()
     {
         return count_;
     }
@@ -110,6 +116,33 @@ public:
     {
         return (count_ / 1000);
     }
+
+    bool operator< (const SysTime& other) const 
+    {
+        return count_ < other.count_;
+    }
+
+    bool operator> (const SysTime& other) const 
+    {
+        return count_ > other.count_;
+    }
+
+    bool operator== (const SysTime& other) const 
+    {
+        return count_ == other.count_;
+    }
+
+    bool operator>= (const SysTime& other) const 
+    {
+        return count_ >= other.count_;
+    }
+
+    bool operator<= (const SysTime& other) const 
+    {
+        return count_ <= other.count_;
+    } 
+
+    friend int64_t time_diff(const SysTime & a, const SysTime & b);
 
 private:
     int64_t count_;  
@@ -160,7 +193,7 @@ public:
         return t.to_string();
     }
 
-    int64_t get_millisecond()
+    int64_t get_ms()
     {
         return count_;
     }
@@ -170,10 +203,70 @@ public:
         return (count_ / 1000);
     }
 
+    /// @brief 判当前时刻是否已过了指定的时长
+    /// @param ms 毫秒
+    /// @return 
+    bool is_after(int64_t ms)
+    {
+        return (uptime() > (count_ + ms));
+    }
+
+
+    bool operator< (const SysTick& other) const 
+    {
+        return count_ < other.count_;
+    }
+
+    bool operator> (const SysTick& other) const 
+    {
+        return count_ > other.count_;
+    }
+
+    bool operator== (const SysTick& other) const 
+    {
+        return count_ == other.count_;
+    }
+
+    bool operator>= (const SysTick& other) const 
+    {
+        return count_ >= other.count_;
+    }
+
+    bool operator<= (const SysTick& other) const 
+    {
+        return count_ <= other.count_;
+    }    
+
+    friend int64_t time_diff(const SysTick & a, const SysTick & b);
+
 private:
     int64_t count_;
 };
 
+
+/**
+ * @brief 求两个时间差
+ * 
+ * @param a 
+ * @param b 
+ * @return int64_t (a - b)
+ */
+static inline int64_t time_diff(const SysTick & a, const SysTick & b)
+{
+    return (a.count_ - b.count_);
+}
+
+/**
+ * @brief 求两个时间差
+ * 
+ * @param a 
+ * @param b 
+ * @return int64_t (a - b)
+ */
+static inline int64_t time_diff(const SysTime & a, const SysTime & b)
+{
+    return (a.count_ - b.count_);
+}
 
 } // end system
 

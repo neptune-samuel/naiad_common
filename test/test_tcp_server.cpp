@@ -24,13 +24,13 @@
 int main(int argc, const char *argv[])
 {
     // 先初始化日志
-    nos::log::logger_init(APP_NAME, nos::log::LogLevel::Debug);
-    ilog(APP_NAME " started, build time: {} {}", __DATE__, __TIME__);
+    slog::make_logger(APP_NAME, slog::LogLevel::Trace);
+    slog::info(APP_NAME " started, build time: {} {}", __DATE__, __TIME__);
 
-    nos::libuv::Loop loop(nos::libuv::Loop::Type::New);
+    uv::Loop loop(uv::Loop::Type::New);
 
-    auto signal_handle = [](nos::libuv::Loop &loop, int signum){
-            trace("-> handle {}", signum);
+    auto signal_handle = [](uv::Loop &loop, int signum){
+            slog::trace("-> handle {}", signum);
             loop.stop();
         };
 
@@ -42,16 +42,36 @@ int main(int argc, const char *argv[])
 
     tcp.start();
 
-    nos::libuv::Timer timer(loop.get());
+    // 测试TCP关闭
+    // uv::Timer timer;
+    // timer.bind(loop);
+    // timer.start(5000, [&tcp](uv::Timer &self){
+    //         slog::info("stop tcp server");
+    //         tcp.stop();
+    //         self.stop();
+    //     });
 
-    timer.start(1000, 5000, [&tcp](nos::libuv::Timer &timer){
-            //tcp.dump_clients();
-        });
+    // 接收和发送处理 -- 使用独立线程
+    // std::thread tcp_data = std::thread([&tcp](){
+    //     while (tcp.is_running())
+    //     {
+    //         while (tcp.received_frames_num() > 0)
+    //         {
+    //             auto f = tcp.receive();
+    //             if (!f.is_empty())
+    //             {
+    //                 tcp.send(f);
+    //             }
+    //         }
 
-    // 创建一个TCP处理线程
-    std::thread tcp_data = std::thread([&tcp](){
-        while (tcp.is_running())
-        {
+    //         nos::system::mdelay(1);
+    //     }
+    // });
+
+    // 接收和发送，使用当前loop接收
+
+    tcp.signal_bind(0, loop, [&tcp](uv::AsyncSignal::SignalId signal){
+
             while (tcp.received_frames_num() > 0)
             {
                 auto f = tcp.receive();
@@ -60,18 +80,14 @@ int main(int argc, const char *argv[])
                     tcp.send(f);
                 }
             }
-
-            nos::system::mdelay(1);
-        }
     });
-
 
     loop.spin();
     tcp.stop();
 
-    tcp_data.join();
+    //tcp_data.join();
 
-    elog(APP_NAME " exited");
+    slog::error(APP_NAME " exited");
 
     return 0;
 }

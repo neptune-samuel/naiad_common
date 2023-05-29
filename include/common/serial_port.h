@@ -17,6 +17,15 @@
 #include <thread>
 #include <mutex>
 
+// by default ,enable RX_NOTIFY
+#ifndef SERIAL_RX_NOTIFY
+#define SERIAL_RX_NOTIFY  1
+#endif 
+
+#if SERIAL_RX_NOTIFY
+#include <common/uv_helper.h>
+#endif 
+
 
 namespace nos 
 {
@@ -102,6 +111,32 @@ public:
      */
     bool async_read_start(int queue_size = 8192);
 
+
+#if SERIAL_RX_NOTIFY
+    /**
+     * @brief 启动异步接收，并注册异步通知
+     * 
+     * @param uv_loop 接收通知的loop
+     * @param signal_handle 异步处理函数
+     * @param queue_size 队列大小
+     * @return bool  
+     */
+    bool async_read_start(uv_loop_t *uv_loop, uv::AsyncSignal::Function signal_handle, int queue_size);
+
+    /**
+     * @brief 启动异步接收，并注册异步通知
+     * 
+     * @param uv_loop 接收通知的loop
+     * @param signal_handle 异步处理函数
+     * @param queue_size 队列大小
+     * @return bool  
+     */
+    bool async_read_start(uv::Loop & loop, uv::AsyncSignal::Function signal_handle, int queue_size = 8192)
+    {
+        return async_read_start(loop.get(), signal_handle, queue_size);
+    }
+#endif 
+
     /**
      * @brief 停止异步读
      * 
@@ -137,6 +172,15 @@ public:
      */
     void get_statistics(SerialStatistics &stats);
 
+    /**
+     * @brief 检测串口参数是否合法
+     * 
+     * @param options 
+     * @return true 
+     * @return false 
+     */
+    static bool check_options(const char *options);
+
 private:
     int fd_;
     std::string path_;
@@ -155,8 +199,16 @@ private:
     std::thread rx_thread_;
     /// 接收线程是否在运行
     bool rx_thread_running_;
+#if SERIAL_RX_NOTIFY
+    uv::AsyncSignal rx_signal_;
+#endif 
+
     /// 串口统计信息
     SerialStatistics statistics_;
+    bool rx_queue_half_alert_ = false;
+    bool rx_queue_three_quarter_alert_ = false;
+    bool rx_queue_full_alert_ = false;
+
 
     int read_with_epoll(int fd, int epoll_fd, void *buf, int size, int timeout);
     int read_with_select(int fd, void *buf, int size, int timeout);

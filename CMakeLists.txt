@@ -27,7 +27,7 @@ set(CMAKE_PREFIX_PATH ${LIBS_INSTALL_DIR})
 find_package(libuv REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(fmt REQUIRED)
-#find_package(docopt REQUIRED)
+find_package(docopt REQUIRED)
 
 # message(STATUS "=> libuv:${libuv_DIR}")
 # message(STATUS "=> libuv:${libuv_INCLUDE_DIRS}")

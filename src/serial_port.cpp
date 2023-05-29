@@ -207,7 +207,7 @@ static bool parse_options(const char *options, SerialSetting &set)
 
             if (set.baudrate == 0)
             {
-                wlog("invalid serial baudrate: {}", result[0]);
+                slog::warning("invalid serial baudrate: {}", result[0]);
                 return false;
             }
         }
@@ -219,7 +219,7 @@ static bool parse_options(const char *options, SerialSetting &set)
             if ((set.data_bits != 5) && (set.data_bits != 6)
                 && (set.data_bits != 7) && (set.data_bits != 8))
             {
-                wlog("invalid serial data-bits: {}", result[1]);
+                slog::warning("invalid serial data-bits: {}", result[1]);
                 return false;                
             }
         }
@@ -241,7 +241,7 @@ static bool parse_options(const char *options, SerialSetting &set)
             }
             else 
             {
-                wlog("invalid serial parity option: {}", result[2]);
+                slog::warning("invalid serial parity option: {}", result[2]);
                 return false;
             }
         }
@@ -252,7 +252,7 @@ static bool parse_options(const char *options, SerialSetting &set)
 
             if ((set.stop_bits != 1) && (set.stop_bits != 2))
             {
-                wlog("invalid serial stop-bits: {}", result[3]);
+                slog::warning("invalid serial stop-bits: {}", result[3]);
                 return false;
             }
         }
@@ -278,6 +278,8 @@ SerialPort::SerialPort(const std::string &device) : fd_(-1), path_(device)
     }
 
     statistics_ = { 0 };
+
+    rx_thread_running_ = false;
 }
 
 
@@ -290,12 +292,16 @@ SerialPort::~SerialPort()
     }
 }
 
+bool SerialPort::check_options(const char *options)
+{
+    SerialSetting cfg = { 0 };
+    return parse_options(options, cfg);
+}
 
 const std::string & SerialPort::name()
 {
     return name_;
 }
-
 
 bool SerialPort::open(const char *options)
 {
@@ -303,7 +309,7 @@ bool SerialPort::open(const char *options)
 
     if (is_opened())
     {
-        wlog("port({}) is already opened", name_);
+        slog::warning("port({}) is already opened", name_);
         return false;
     }
 
@@ -315,14 +321,14 @@ bool SerialPort::open(const char *options)
     fd_ = ::open(path_.c_str(), O_NONBLOCK | O_RDWR | O_NOCTTY);
     if (fd_ == -1)
     {
-        wlog("open({}) failed: {}", path_, strerror(errno));
+        slog::warning("open({}) failed: {}", path_, strerror(errno));
         return false;
     }
 
     // 备份参数
     if (tcgetattr(fd_, &default_options_) != 0)
     {
-        wlog("tcgeattr() failed: {}", strerror(errno));
+        slog::warning("tcgeattr() failed: {}", strerror(errno));
 
         ::close(fd_);
         fd_ = -1;
@@ -384,13 +390,13 @@ bool SerialPort::open(const char *options)
 
     if (tcsetattr(fd_, TCSANOW, &set) != 0)
     {
-        wlog("tcsetattr() failed: {}", strerror(errno));
+        slog::warning("tcsetattr() failed: {}", strerror(errno));
         ::close(fd_);
         fd_ = -1;
         return false;
     }
 
-    dlog("serial({}) open success", name_);
+    slog::debug("serial({}) open success", name_);
 
     return true;
 }
@@ -418,13 +424,13 @@ void SerialPort::close()
         // 尝试恢复到默认
         if (tcsetattr(fd_, TCSANOW, &default_options_) != 0)
         {
-            wlog("tcsetattr() failed: {}", strerror(errno));
+            slog::warning("tcsetattr() failed: {}", strerror(errno));
         }
 
         ::close(fd_);
         fd_ = -1;
 
-        dlog("serial({}) close", name_);
+        slog::debug("serial({}) close", name_);
     }
 }
 
@@ -456,7 +462,7 @@ int SerialPort::read_with_epoll(int fd, int epoll_fd, void *buf, int size, int t
             {
                 ret = 0;
             }
-            //trace("read() errno = {}", errno);
+            //slog::trace("read() errno = {}", errno);
         }
 
         return ret;
@@ -473,7 +479,7 @@ int SerialPort::read_with_epoll(int fd, int epoll_fd, void *buf, int size, int t
             int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, timeout);
             if (nfds < 0)
             {
-                wlog("epoll wait() error");
+                slog::warning("epoll wait() error");
                 return -1;
             }
 
@@ -524,7 +530,7 @@ int SerialPort::read_with_select(int fd, void *buf, int size, int timeout)
             {
                 ret = 0;
             }
-            //trace("read() errno = {}", errno);
+            //slog::trace("read() errno = {}", errno);
         }
 
         return ret;
@@ -594,7 +600,8 @@ int SerialPort::read(void *buf, int size, int timeout)
     {
         statistics_.rx_bytes += rx_size;
 
-        trace("serial({}) read: {:X}", name_, spdlog::to_hex((const unsigned char *)buf, (const unsigned char *)buf + rx_size, 16));
+        //slog::trace("serial({}) read: {:X}", name_, spdlog::to_hex((const unsigned char *)buf, (const unsigned char *)buf + rx_size, 16));
+        slog::trace_data(buf, size, "serial({}) read({}):", name_, size);
     }
 
     return rx_size;
@@ -607,7 +614,8 @@ int SerialPort::write(const void *buf, int size)
         return -1;
     }
 
-    trace("serial({}) write: {:X}", name_, spdlog::to_hex((const unsigned char *)buf, (const unsigned char *)buf + size, 16));
+    //slog::trace("serial({}) write: {:X}", name_, spdlog::to_hex((const unsigned char *)buf, (const unsigned char *)buf + size, 16));
+    slog::trace_data(buf, size, "serial({}) write({}):", name_, size);
 
     int ret;
 
@@ -641,7 +649,7 @@ int SerialPort::write(const void *buf, int size)
 
     if (offset != size)
     {
-        wlog("serial({}) write {} bytes, but expect {} bytes", name_, offset, size);
+        slog::warning("serial({}) write {} bytes, but expect {} bytes", name_, offset, size);
     }
 
     statistics_.tx_bytes += offset;
@@ -666,7 +674,7 @@ bool SerialPort::async_read_start(int queue_size)
 
     if (rx_thread_running_)
     {
-        wlog("serial({}) aync-read is running", name_);
+        slog::warning("serial({}) aync-read is running", name_);
         return false;
     }
 
@@ -685,7 +693,7 @@ bool SerialPort::async_read_start(int queue_size)
         int epoll_fd = epoll_create1(0);
         if (epoll_fd < 0)
         {
-            elog("epoll_create1() failed");
+            slog::error("epoll_create1() failed");
             return ;
         }
 
@@ -695,7 +703,7 @@ bool SerialPort::async_read_start(int queue_size)
 
         if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd_, &ev) < 0)
         {
-            elog("epoll_ctl() failed");
+            slog::error("epoll_ctl() failed");
 
             ::close(epoll_fd);
             return ;
@@ -728,26 +736,62 @@ bool SerialPort::async_read_start(int queue_size)
                         this->rx_queue_.push(buf[i]);
                     }
 
+                    #if SERIAL_RX_NOTIFY
+                    this->rx_signal_.notify();
+                    #endif 
+
                     // 计算峰值 
                     if (this->rx_queue_.size() > this->statistics_.fifo_peak_size)
-                    {                        
-                        dlog("serial({}) rx fifo peak rise: {} -> {}", this->name_, this->statistics_.fifo_peak_size, this->rx_queue_.size());
+                    {    
+                        slog::debug("serial({}) rx fifo peak rise: {} -> {}", this->name_, this->statistics_.fifo_peak_size, this->rx_queue_.size());
                         this->statistics_.fifo_peak_size = this->rx_queue_.size();
                     }
+
+                    // 如果到达FIFO的1/2 和 3/4, 给出一条警告， 
+                    if ((!this->rx_queue_three_quarter_alert_) && (this->rx_queue_.size() > ((this->statistics_.fifo_size * 3) / 4)))
+                    {
+                        slog::warning("serial({}) fifo used({}) up to 3/4 of max size", this->name_, this->rx_queue_.size());
+                        this->rx_queue_three_quarter_alert_ = true;
+                    }
+                    else if ((!this->rx_queue_half_alert_) && (this->rx_queue_.size() > (this->statistics_.fifo_size >> 1)))
+                    {
+                        slog::warning("serial({}) fifo used({}) up to 1/2 of max size", this->name_, this->rx_queue_.size());                                
+                        this->rx_queue_half_alert_ = true;
+                    }
+
+                    // FIFO降低后，再次开启警告
+                    if (this->rx_queue_.size() < (this->statistics_.fifo_size >> 1))
+                    {
+                        this->rx_queue_half_alert_ = false;
+                    }
+
+                    if (this->rx_queue_.size() < (this->rx_queue_.size() > ((this->statistics_.fifo_size * 3) / 4)))
+                    {
+                        this->rx_queue_three_quarter_alert_ = false;
+                    }
+
+                    this->rx_queue_full_alert_ = false;
+
                 }
                 else 
                 {
                     statistics_.rx_drop_bytes += rx_size;
-                    dlog("serial({}) fifo full, drop {} bytes", this->name_, rx_size);                    
+
+                    if (!this->rx_queue_full_alert_)
+                    {
+                        slog::warning("serial({}) fifo full, drop {} bytes, more meessage will be subpressed", this->name_, rx_size);
+                        this->rx_queue_full_alert_ = true;
+                    } 
                 }
 
-                trace("serial({}) read: {:X}", name_, spdlog::to_hex((const unsigned char *)buf, (const unsigned char *)buf + rx_size, 16));
+                //slog::trace("serial({}) read: {:X}", name_, spdlog::to_hex((const unsigned char *)buf, (const unsigned char *)buf + rx_size, 16));
+                slog::trace_data(buf, rx_size, "serial({}) read({}):", this->name_, rx_size);
             } 
             else 
             {
                 if (rx_size < 0) 
                 {
-                    wlog("serial({}) rx failed,ret={}", this->name_, rx_size);
+                    slog::warning("serial({}) rx failed,ret={}", this->name_, rx_size);
                 }
                 
             }           
@@ -763,6 +807,32 @@ bool SerialPort::async_read_start(int queue_size)
     return true;
 }
 
+#if SERIAL_RX_NOTIFY
+/**
+ * @brief 启动异步接收，并注册异步通知
+ * 
+ * @param uv_loop 接收通知的loop
+ * @param signal_handle 异步处理函数
+ * @param queue_size 队列大小
+ * @return bool  
+ */
+bool SerialPort::async_read_start(uv_loop_t *uv_loop, uv::AsyncSignal::Function signal_handle, int queue_size = 8192)
+{
+    // bind loop
+    rx_signal_.bind(uv_loop, signal_handle);
+
+    bool ret = async_read_start(queue_size);
+    if (!ret)
+    {
+        //接收线程启动失败，关闭信号
+        rx_signal_.close();
+    }
+
+    return ret;
+}
+
+#endif 
+
 /**
  * @brief 停止异步读
  * 
@@ -771,6 +841,11 @@ void SerialPort::async_read_stop()
 {
     if (rx_thread_running_)
     {
+
+        #if SERIAL_RX_NOTIFY
+        rx_signal_.close();
+        #endif 
+
         rx_thread_running_ = false;
         // wait for end
         rx_thread_.join();

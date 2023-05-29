@@ -34,7 +34,7 @@ class DataFrame
 public:
     explicit DataFrame(int size): host_({"", 0}), size_(size) , time_stamp_(0)
     { 
-        //trace("--> DataFrame(size ={})", size_);
+        //slog::trace("--> DataFrame(size ={})", size_);
 
         if (size_ > 0)
         {
@@ -48,7 +48,7 @@ public:
     }
 
     DataFrame(Host const &host, int size) : DataFrame(size) {
-        //trace("--> DataFrame(Host const &host, int size)");
+        //slog::trace("--> DataFrame(Host const &host, int size)");
         host_ = host;
      }
 
@@ -66,7 +66,7 @@ public:
     // 复制函数
     DataFrame(DataFrame const & other)
     {
-        //trace("--> DataFrame() copy construct");
+        //slog::trace("--> DataFrame() copy construct");
 
         host_ = other.host_;
         if (other.size_ > 0)
@@ -94,7 +94,7 @@ public:
 
     DataFrame(DataFrame && other)
     {
-        //trace("--> DataFrame() move construct");        
+        //slog::trace("--> DataFrame() move construct");        
         host_ = other.host_;
         data_ = other.data_;
         size_ = other.size_;
@@ -176,7 +176,7 @@ public:
 
     ~DataFrame()
     {
-        //trace("--> DataFrame() destruct, size={}, {}", size_,  data_ ? "with data" : "no data");   
+        //slog::trace("--> DataFrame() destruct, size={}, {}", size_,  data_ ? "with data" : "no data");   
         if (data_)
         {
             delete [] data_;

@@ -13,6 +13,8 @@
  */
 #include <string>
 #include <thread>
+#include <memory>
+#include <algorithm>
 
 #include <sys/socket.h>
 
@@ -32,6 +34,11 @@ namespace network
  * 
  */
 const Host TcpServer::AllClients {"", 0};
+
+/// 后续完善，增加更多的信号，如断连？
+const uv::AsyncSignal::SignalId TcpServer::SignalReceiveFrame(0);
+const uv::AsyncSignal::SignalId TcpServer::SignalConnectionLost(1);
+
 
 /**
  * @brief TCP 连接对象
@@ -66,7 +73,8 @@ public:
         uv_tcp_init(loop, &client_);
 
         /// 设置对象数据？
-        uv_handle_set_data((uv_handle_t *)&client_, this);
+        //uv_handle_set_data((uv_handle_t *)&client_, this);
+        client_.data = this;
     }
 
     /**
@@ -90,7 +98,7 @@ public:
         // 如果已连接，不能进行accept
         if (connected_)
         {
-            wlog("{}: accept duplicated", brief());
+            slog::warning("{}: accept duplicated", brief());
             return false;
         }
 
@@ -98,7 +106,7 @@ public:
         if (ret != 0)
         {
             connected_ = false;
-            wlog("{}: connection accept failed, ret={}", server_name, ret);
+            slog::warning("{}: connection accept failed, ret={}", server_name, ret);
             return false;
         }
 
@@ -109,17 +117,17 @@ public:
         {
             // enable 
             int ret = uv_tcp_nodelay(&client_, 1);
-            trace("{}: uv_tcp_nodelay() return {}", server_name, ret);
+            slog::trace("{}: uv_tcp_nodelay() return {}", server_name, ret);
 
             // KeepAlive 时间 TODO
             ret = uv_tcp_keepalive(&client_, 1, 10);
-            trace("{}: uv_tcp_keepalive() return {}", server_name, ret);
+            slog::trace("{}: uv_tcp_keepalive() return {}", server_name, ret);
         }
 
         // 获取地址及端口信息
         update_client_info();            
         
-        dlog("{}: connection({}) accept success", server_name, brief());
+        slog::debug("{}: connection({}) accept success", server_name, brief());
 
         // 启动读函数
         uv_read_start((uv_stream_t*)&client_, [](uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {            
@@ -136,7 +144,9 @@ public:
             // 调用服务端的数据处理函数
             if (nread > 0)
             {                
-                trace("receive {} bytes from ({}): {:X}", nread, conn->brief(), spdlog::to_hex((const unsigned char *)buf->base, (const unsigned char *)buf->base + nread, 16));
+                //slog::trace("receive {} bytes from ({}): {:X}", nread, conn->brief(), spdlog::to_hex((const unsigned char *)buf->base, (const unsigned char *)buf->base + nread, 16));                
+                slog::trace_data(buf->base, nread, "receive {} bytes from ({}):", nread, conn->brief());
+
 
                 if (conn->event_handle_)
                 {
@@ -148,7 +158,7 @@ public:
                 conn->connected_ = false;
                 conn->down_time_ = nos::system::uptime();
 
-                dlog("tcp client({}) connection lost", conn->brief());
+                slog::debug("tcp client({}) connection lost", conn->brief());
                 if (conn->event_handle_)
                 {
                     conn->event_handle_(*conn, Event::ConnectionLost, nullptr, 0);
@@ -157,7 +167,7 @@ public:
             else 
             {
                 // client read error ?
-                elog("tcp client({}) read failed, ret={}", conn->brief(), uv_strerror(nread));
+                slog::error("tcp client({}) read failed, ret={}", conn->brief(), uv_strerror(nread));
             }
 
             // 释放空间
@@ -252,19 +262,19 @@ public:
             uv_write_t *req = new uv_write_t;
             uv_buf_t buf = uv_buf_init((char *)data, size);
 
-            trace("send {} bytes to ({}): {:X}", size, brief(), spdlog::to_hex(data, data + size, 16));
+            slog::trace_data(data, size, "send {} bytes to ({}):", size, brief());
 
             int ret = uv_write(req, (uv_stream_t *)&client_, &buf, 1, [](uv_write_t *req, int status){
                     if (status < 0)
                     {
-                        wlog("{uv_write() callback error:{}", uv_strerror(status));
+                        slog::warning("{uv_write() callback error:{}", uv_strerror(status));
                     }
 
                     // 删除uv_write
                     delete req;
                 });
 
-            trace("{}: uv_write(size={}) return {}", brief(), size, ret);
+            slog::trace("{}: uv_write(size={}) return {}", brief(), size, ret);
             return ret;
         }
 
@@ -332,7 +342,7 @@ private:
         } 
         else 
         {
-            elog("Unknown address family: {}", addr.ss_family);
+            slog::error("Unknown address family: {}", addr.ss_family);
         } 
     }
 };
@@ -351,17 +361,23 @@ private:
 TcpServer::TcpServer(std::string const &name, 
     std::string const &address, 
     int port, 
-    int max_clients_num) : libuv::TcpServer(libuv::Loop::Type::New), name_(name), address_(address), port_(port)
+    int max_clients_num) : 
+    uv::TcpServer(uv::Loop::Type::New), 
+    name_(name), 
+    address_(address), 
+    port_(port),
+    thread_exit_(false),
+    started_(false),
+    max_clients_num_(max_clients_num)
 {
-    started_ = false;
-
     /// 设置对象数据？
-    uv_handle_set_data((uv_handle_t*)&server_, this);
+    //uv_handle_set_data((uv_handle_t*)&server_, this);
+    server_.data = this;
 
     // 设置brief
     brief_ = address_ + ":" + std::to_string(port_);
 
-    dlog("create tcp server({}) with {}", name_, brief_);
+    slog::debug("create tcp server({}) with {}", name_, brief_);
 }
 
 
@@ -402,14 +418,14 @@ bool TcpServer::start()
 {
     if (started_)
     {
-        wlog("start {} failed, it seems already started", name_);
+        slog::warning("start {} failed, it seems already started", name_);
         return false;
     }
 
     int ret = bind(address_, port_);
     if (ret != 0)
     {
-        elog("{}: bind to {} failed: {}", name_, brief_, uv_strerror(ret));
+        slog::error("{}: bind to {} failed: {}", name_, brief_, uv_strerror(ret));
         return false;
     }
 
@@ -421,7 +437,7 @@ bool TcpServer::start()
 
             if (status < 0)
             {
-                elog("{}: listen callback return unexpected error: {}", self->name(), uv_strerror(status));
+                slog::error("{}: listen callback return unexpected error: {}", self->name(), uv_strerror(status));
                 return ;
             }
             
@@ -431,11 +447,11 @@ bool TcpServer::start()
 
     if (ret != 0)
     {
-        elog("{}: listen failed: {}", name_, uv_strerror(ret));
+        slog::error("{}: listen failed: {}", name_, uv_strerror(ret));
         return false;
     }
 
-    ilog("{}: listen on {} success", name_, brief_);
+    slog::info("{}: listen on {} success", name_, brief_);
 
     // 创建一个线程，运行uv loop
     thread_ = std::thread(&TcpServer::loop_thread, this);
@@ -454,6 +470,9 @@ void TcpServer::stop()
 
     if (started_)
     {
+        // 关闭关送通知
+        tx_notify_.close();
+
         close_all_connections();
 
         // 清空接收和发送FIFO
@@ -470,11 +489,33 @@ void TcpServer::stop()
         uv_tcp_close_reset(&server_, nullptr);
 
         thread_exit_ = true;
-        // 停止线程
-        trace("-> wait for thread exit");
-        thread_.join();
+        
+        //uv_stop(loop_);
+        async_stop();
 
-        uv_stop(loop_);
+        // 停止线程
+        slog::trace("-> wait for thread exit");
+
+        thread_.join();
+    }
+}
+
+/**
+ * @brief 绑定一个信号到外部loop
+ * 
+ * @param signal 信号
+ * @param uv_loop uv_loop
+ * @param signal_handle 信号处理函数，在外部loop中调用
+ */
+void TcpServer::signal_bind(int signal, uv_loop_t *uv_loop, uv::AsyncSignal::Function signal_handle)
+{
+    if (signal == SignalReceiveFrame)
+    {
+        rx_notify_.bind(uv_loop, signal_handle);
+    }
+    else 
+    {
+        slog::warning("unsupported signal:{}", signal);
     }
 }
 
@@ -500,44 +541,41 @@ void TcpServer::loop_thread()
 
     thread_exit_ = false;
 
-    trace("{}: loop thread started", name_);
-    // 启动UV LOOP
-    while (!thread_exit_)
-    {
-        uv_run(loop_, UV_RUN_NOWAIT);   
+    slog::trace("{}: loop thread started", name_);
 
+    tx_notify_.bind(loop_, [this](int id){
+
+        slog::trace("{}: get tx notify", name_);
         // 检查发送队列，是否有数据需要发送
-        bool tx_available = false;
+        int pendings = 0;
 
         {
             std::lock_guard<std::mutex> lock(tx_mutex_);
-            tx_available = !tx_frames_.empty();
+            pendings = tx_frames_.size();
         }
 
-        if (tx_available)
+        while (pendings > 0)
         {
             DataFrame frame(0);
-            int tx_pending = 0;
 
             {
                 std::lock_guard<std::mutex> lock(tx_mutex_);                
                 frame = std::move(tx_frames_.front());
                 tx_frames_.pop();                    
-                tx_pending = tx_frames_.size();
+                pendings = tx_frames_.size();
             }
 
-            dlog("{}: pop tx frame-{}, pending:{}", name_, frame.id(), tx_pending);
+            slog::debug("{}: pop tx frame-{}, pending:{}", name_, frame.id(), pendings);
                         
             if (!frame.is_empty())
             {
                 Host const & host = frame.get_host();
-
                 // 如果port 为0，表示发给所有的客户端
                 if (host.port == 0)
                 {
                     for (auto &it : connections_)
                     {
-                        dlog("{}: send frame-{} to host:{}", name_, frame.id(), (*it).brief());
+                        slog::debug("{}: send frame-{} to host:{}", name_, frame.id(), (*it).brief());
                         (*it).send(frame);
                     }
                 }
@@ -550,22 +588,36 @@ void TcpServer::loop_thread()
 
                     if (it != connections_.end())
                     {
-                        dlog("{}: send frame-{} to host:{}", name_, frame.id(), it->get()->brief());
+                        slog::debug("{}: send frame-{} to host:{}", name_, frame.id(), it->get()->brief());
                         it->get()->send(frame);                    
                     }
                     else 
                     {
-                        wlog("{}: send failed, not such host({}:{})", name_, host.address, host.port);
+                        slog::warning("{}: send failed, not such host({}:{})", name_, host.address, host.port);
                     }
                 }            
             }            
         }
-    }
+    });
 
-    trace("{}: loop thread exited", name_);    
+    uv_run(loop_, UV_RUN_DEFAULT);   
+
+    slog::trace("{}: loop thread exited", name_);    
 
     started_ = false;
 }
+
+
+/**
+ * @brief 获取当前连接数
+ * 
+ * @return int 
+ */
+int TcpServer::connections_num()
+{
+    return connections_.size();
+}
+
 
 /**
  * @brief 清空所有连接
@@ -590,11 +642,11 @@ void TcpServer::setup_connection()
         // 连接事件处理函数
         [this](TcpConnection &connection, TcpConnection::Event event, uint8_t const * const data, int size){
 
-            dlog("{}: client({}) event: {}", name_, connection.brief(), static_cast<int>(event));
+            slog::debug("{}: client({}) event: {}", name_, connection.brief(), static_cast<int>(event));
 
             if (event == TcpConnection::Event::ConnectionLost)
             {
-                wlog("{}: connection({}) lost, removed", name_, connection.brief());
+                slog::warning("{}: connection({}) lost, removed", name_, connection.brief());
 
                 auto it = std::find_if(connections_.begin(), connections_.end(), [&connection](const std::unique_ptr<TcpConnection>& conn) {
                         // 使用brief()这个不可靠
@@ -605,7 +657,7 @@ void TcpServer::setup_connection()
 
                 if (it != connections_.end())
                 {
-                    trace("find connection({}), remove it", connection.brief());
+                    slog::trace("find connection({}), remove it", connection.brief());
 
                     // 更新客户端信息
                     connection.update_client_info(get_client_info(connection.get_address(), connection.get_port()));
@@ -617,11 +669,14 @@ void TcpServer::setup_connection()
             {
                 // 创建一个队列 
                 DataFrame frame(connection.get_host(), data, size);
-                dlog("{}: queue rx frame-{}(size:{}, from:{}) pending:{}", name_, frame.id(), size, connection.brief(), rx_frames_.size());
+                slog::debug("{}: queue rx frame-{}(size:{}, from:{}) pending:{}", name_, frame.id(), size, connection.brief(), rx_frames_.size());
 
                 // 入队列 
                 std::lock_guard<std::mutex> lock(rx_mutex_);
                 rx_frames_.emplace(std::move(frame));
+
+                // 通知外部线程读取数据
+                rx_notify_.notify();
             }
         }
     );
@@ -639,7 +694,7 @@ void TcpServer::setup_connection()
         connections_.emplace_back(std::move(conn));
 
         // give a log
-        ilog("{}: connection({}) setup success, total: {}", name_, client, connections_.size());
+        slog::info("{}: connection({}) setup success, total: {}", name_, client, connections_.size());
     }
 }
 
@@ -682,7 +737,7 @@ void TcpServer::dump_clients()
     for (auto &it : clients_)
     {
         auto &client = *it;
-        ilog("{}: {}:{} {} at {}", name_, client.address, client.port, 
+        slog::info("{}: {}:{} {} at {}", name_, client.address, client.port, 
             client.connected ? "connected" : "disconnected", 
             client.connected ? nos::system::SysTick(client.up_time).to_time_string() \
                 : nos::system::SysTick(client.down_time).to_time_string());
@@ -719,7 +774,7 @@ DataFrame TcpServer::receive()
     DataFrame frame = std::move(rx_frames_.front());
     rx_frames_.pop();
     
-    dlog("{}: pop rx frame-{}, pending:{}", name_, frame.id(), rx_frames_.size());
+    slog::debug("{}: pop rx frame-{}, pending:{}", name_, frame.id(), rx_frames_.size());
 
     return frame;
 }
@@ -742,10 +797,13 @@ bool TcpServer::send(Host const & host, uint8_t const * const data, int size)
 
     DataFrame frame(host, data, size);
 
-    dlog("{}: queue tx frame-{}(size:{}, to:{}:{}) pending:{}", name_, frame.id(), size, host.address, host.port, tx_frames_.size());
+    slog::debug("{}: queue tx frame-{}(size:{}, to:{}:{}) pending:{}", name_, frame.id(), size, host.address, host.port, tx_frames_.size());
 
     std::lock_guard<std::mutex> lock(tx_mutex_);
     tx_frames_.emplace(std::move(frame));
+
+    // notify tx ready
+    tx_notify_.notify();
 
     return true;
 }

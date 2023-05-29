@@ -7,7 +7,7 @@
                 "${workspaceFolder}/include/*",
                 "${workspaceFolder}/local-install/x86_64/include/*"
             ],
-            "defines": [],
+            "defines": ["SERIAL_RX_NOTIFY"],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "c17",
             "cppStandard": "gnu++17",

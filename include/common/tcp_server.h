@@ -30,8 +30,9 @@
 #include <iostream>
 #include <thread>
 #include <optional>
+#include <mutex>
 
-#include <common/libuv_utils.h>
+#include <common/uv_helper.h>
 #include <common/network_client.h>
 #include <common/network_frame.h>
 
@@ -50,12 +51,17 @@ class TcpConnection;
  * @brief 一个TCP服务端的封装
  * 
  */
-class TcpServer : public libuv::TcpServer
+class TcpServer : public uv::TcpServer
 {
 public:
 
     /// 创建一个常量，表示所有主机，发送时使用
     static const Host AllClients;
+
+    /// TCP信号
+    /// 后续完善，增加更多的信号，如断连？
+    static const uv::AsyncSignal::SignalId SignalReceiveFrame;
+    static const uv::AsyncSignal::SignalId SignalConnectionLost;
 
     /**
      * @brief 创建一个TCP服务端
@@ -135,7 +141,25 @@ public:
      * @note 不使用C++17的特性
      */
     DataFrame receive();
-    //std::optional<DataFrame> receive();
+
+    /**
+     * @brief 接收通知绑定到外部Loop
+     * 
+     * @param uv_loop 
+     */
+    void signal_bind(int signal, uv_loop_t *uv_loop, uv::AsyncSignal::Function signal_handle);
+
+    /**
+     * @brief 绑定一个信号
+     * 
+     * @param loop 
+     * @param signal_handle 
+     */
+    void signal_bind(int signal, uv::Loop &loop, uv::AsyncSignal::Function signal_handle)
+    {
+        signal_bind(signal, loop.get(), signal_handle);
+    }
+
 
     /**
      * @brief 发送数据到指定客户端
@@ -147,7 +171,6 @@ public:
      * @return false 发送失败
      */
     bool send(Host const & host, uint8_t const * const data, int size);
-    //bool send(std::optional<Host> host, uint8_t const *data, int size);
 
 
     /**
@@ -159,12 +182,14 @@ public:
      */
     bool send(DataFrame const &frame);
 
+    /// 返回连接数量 
+    int connections_num();
+
     /**
      * @brief 清空所有连接
      * 
      */
     void close_all_connections();
-
 
     /**
      * @brief 以info级别显示客户端状态信息
@@ -203,6 +228,11 @@ private:
 
     std::mutex rx_mutex_;
     std::mutex tx_mutex_;
+
+    uv::AsyncSignal tx_notify_;
+
+    // 给外部线程使用，通知外部线程数据准备好
+    uv::AsyncSignal rx_notify_;
 
     /**
      * @brief 处理新连接
