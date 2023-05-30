@@ -5,10 +5,12 @@
 #include <map>
 #include <iostream>
 
+#ifdef LOGGER_WITH_SPDLOG
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/fmt/bin_to_hex.h>
+#endif 
 
 #include <common/logger.h>
 
@@ -77,10 +79,10 @@ std::shared_ptr<Logger> get_logger(std::string const & name)
     std::lock_guard<std::mutex> lock(s_registry_mutex);   
 
     // prints
-    for (auto & it : s_logger_registry)
-    {
-        std::cout << "+++ " << it.first << std::endl; 
-    }
+    // for (auto & it : s_logger_registry)
+    // {
+    //     std::cout << "+++ " << it.first << std::endl; 
+    // }
 
     auto registry = s_logger_registry.find(name);    
     return (registry == s_logger_registry.end()) ? __default_logger() : registry->second;
@@ -175,9 +177,20 @@ std::shared_ptr<Logger> make_logger(std::string const &name, LogLevel level)
 }
 
 
+#ifdef LOGGER_WITH_SPDLOG
+
+static spdlog::level::level_enum to_spdlog_level(LogLevel level)
+{
+    return static_cast<spdlog::level::level_enum>(level);
+}
+
+#endif 
 
 Logger::Logger(std::string const &name, LogLevel level, std::string const &log_file, int file_size, int file_num)
 {
+    this->name_ = name;
+
+#ifdef LOGGER_WITH_SPDLOG
     std::vector<spdlog::sink_ptr> sinks;
 
     auto console = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
@@ -198,10 +211,9 @@ Logger::Logger(std::string const &name, LogLevel level, std::string const &log_f
     // 注册到全局数据中
     //spdlog::register_logger(logger_);  
     //spdlog::set_default_logger(logger);
-
-    //std::cout << "+ create logger:" << name << std::endl;
-    
-    //add_logger(std::shared_ptr<Logger>(this));      
+#else 
+    std::cout << "+ create logger:" << name << std::endl;
+#endif 
 }
 
 
@@ -210,45 +222,39 @@ Logger::~Logger()
     //spdlog::drop(logger_->name());
 
     //std::cout << "- destruct:" << name() << std::endl;
-
-    //drop_logger(logger_->name());
 }
 
 
 
 std::string const &Logger::name()
 {
-    return logger_->name();
+    return name_;
 }
 
-// void Logger::set_default()
-// {
-//     //spdlog::set_default_logger(logger_);
-//     std::lock_guard<std::mutex> lock(s_default_logger_mutex);
-    
-//     // 设置默认Logger
-//     s_default_logger = std::make_shared<Logger>(*this);
-// }
 
 void Logger::log(LogLevel level, std::string const & msg)
 {
+#ifdef LOGGER_WITH_SPDLOG
     logger_->log(to_spdlog_level(level), msg);
+#else 
+    std::cout << msg << std::endl;
+#endif 
 }
 
 
 void Logger::dump(LogLevel level, void const *data, int size, std::string const &msg)
 {
+#ifdef LOGGER_WITH_SPDLOG
     const char *fmt = (size <= 16) ? "{:Xn}" : "{:X}";
     std::string hex = fmt::format(fmt, spdlog::to_hex((const unsigned char *)data, (const unsigned char *)data + size, 16));
     
     logger_->log(to_spdlog_level(level), msg + hex);
+#else 
+    std::cout << "dump(todo):" << msg << std::endl;
+#endif 
 }
 
 
-spdlog::level::level_enum Logger::to_spdlog_level(LogLevel level)
-{
-    return static_cast<spdlog::level::level_enum>(level);
-}
 
 
 

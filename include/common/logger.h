@@ -18,17 +18,20 @@
 #include <type_traits>
 #include <cstdio>
 
-#include <fmt/core.h>
-#include <fmt/format.h>
+#ifdef LOGGER_WITH_SPDLOG
+// use internal libfmt
+#include <spdlog/fmt.h>
 
 namespace spdlog
 {
     class logger;
-
-    namespace level {
-        enum level_enum : int;
-    }
 }
+#else 
+
+#include <fmt/core.h>
+#include <fmt/format.h>
+
+#endif 
 
 namespace slog 
 {
@@ -138,10 +141,12 @@ public:
     }
 
 private:
-    std::shared_ptr<spdlog::logger> logger_;    
+    std::string name_;
 
-    /// 转换为spdlog的日志等级
-    spdlog::level::level_enum to_spdlog_level(LogLevel level);
+#ifdef LOGGER_WITH_SPDLOG
+    std::shared_ptr<spdlog::logger> logger_;    
+#endif 
+
 };
 
 
