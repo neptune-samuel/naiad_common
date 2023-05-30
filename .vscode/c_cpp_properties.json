@@ -5,7 +5,7 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "${workspaceFolder}/include/*",
-                "${workspaceFolder}/local-install/x86_64/include/*"
+                "${workspaceFolder}/../install/x86_64/include/*"
             ],
             "defines": ["SERIAL_RX_NOTIFY"],
             "compilerPath": "/usr/bin/gcc",
