@@ -29,7 +29,7 @@ int main(int argc, const char *argv[])
 
     uv::Loop loop(uv::Loop::Type::New);
 
-    auto signal_handle = [](uv::Loop &loop, int signum){
+    auto signal_handle = []([[maybe_unused]]uv::Loop &loop, int signum){
             slog::trace("-> handle {}", signum);
             loop.stop();
         };
@@ -70,7 +70,7 @@ int main(int argc, const char *argv[])
 
     // 接收和发送，使用当前loop接收
 
-    tcp.signal_bind(0, loop, [&tcp](uv::AsyncSignal::SignalId signal){
+    tcp.signal_bind(0, loop, [&tcp]([[maybe_unused]]uv::AsyncSignal::SignalId signal){
 
             while (tcp.received_frames_num() > 0)
             {

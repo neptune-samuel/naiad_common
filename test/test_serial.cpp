@@ -72,12 +72,12 @@ int main(int argc, const char *argv[])
         port.async_read_start();
 
         timer.bind(loop);
-        timer.start(2000, 1000, [&port](uv::Timer &timer)
+        timer.start(2000, 1000, [&port]([[maybe_unused]]uv::Timer &timer)
             {
                 //auto port = static_cast<nos::driver::SerialPort *>(data);
 
                 //timer.stop();
-                nos::driver::SerialStatistics stats = { 0 };
+                nos::driver::SerialStatistics stats = { };
                 port.get_statistics(stats);
 
                 slog::info("fifo: {} peak {}", stats.fifo_size, stats.fifo_peak_size);

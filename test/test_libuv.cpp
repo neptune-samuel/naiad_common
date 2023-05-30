@@ -29,7 +29,7 @@ int main(int argc, const char *argv[])
 
     // 也可以在启动时绑定函数
     timer.bind(loop);
-    timer.start(1000, 1000, [](uv::Timer &timer){
+    timer.start(1000, 1000, []([[maybe_unused]]uv::Timer &timer){
         std::cout << "timer test" << std::endl;
     });
 
@@ -45,7 +45,7 @@ int main(int argc, const char *argv[])
     uv::Timer restart_timer;
 
     restart_timer.bind(loop);
-    restart_timer.start(8000, [&](uv::Timer &self){
+    restart_timer.start(8000, [&]([[maybe_unused]]uv::Timer &self){
         std::cout << "restart timer1" << std::endl;
         timer.restart();
     });

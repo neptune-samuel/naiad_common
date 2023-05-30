@@ -67,7 +67,7 @@ public:
      * 
      * @param server 
      */
-    TcpConnection(uv_loop_t *loop, EventHandle handle) : event_handle_(handle), connected_(false), address_(""), port_(0)
+    TcpConnection(uv_loop_t *loop, EventHandle handle) : address_(""), event_handle_(handle)
     {
         // 先初始化一个TCP连接
         uv_tcp_init(loop, &client_);
@@ -130,7 +130,7 @@ public:
         slog::debug("{}: connection({}) accept success", server_name, brief());
 
         // 启动读函数
-        uv_read_start((uv_stream_t*)&client_, [](uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {            
+        uv_read_start((uv_stream_t*)&client_, []([[maybe_unused]]uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {            
             // 申请空间
             buf->base = (char *)malloc(suggested_size);
             buf->len = suggested_size;
@@ -301,11 +301,11 @@ private:
     /// 连接对象
     uv_tcp_t client_;
     /// 连接状态
-    bool connected_;
+    bool connected_ = false;
     // 连接地址
     std::string address_;
     // 连接端口
-    int port_;
+    int port_ = 0;
 
     nos::system::SysTick up_time_;
     nos::system::SysTick down_time_;
@@ -362,12 +362,10 @@ TcpServer::TcpServer(std::string const &name,
     std::string const &address, 
     int port, 
     int max_clients_num) : 
-    uv::TcpServer(uv::Loop::Type::New), 
-    name_(name), 
+    uv::TcpServer(uv::Loop::Type::New),     
     address_(address), 
     port_(port),
-    thread_exit_(false),
-    started_(false),
+    name_(name),     
     max_clients_num_(max_clients_num)
 {
     /// 设置对象数据？
@@ -543,7 +541,7 @@ void TcpServer::loop_thread()
 
     slog::trace("{}: loop thread started", name_);
 
-    tx_notify_.bind(loop_, [this](int id){
+    tx_notify_.bind(loop_, [this]([[maybe_unused]]int id){
 
         slog::trace("{}: get tx notify", name_);
         // 检查发送队列，是否有数据需要发送

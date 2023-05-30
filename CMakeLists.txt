@@ -4,66 +4,111 @@
 # Author: LiuChuansen
 # Date: 20230512
 # 
-
-
+# 
 cmake_minimum_required(VERSION 3.13)
 
 project(nos_common)
 
-
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
-
-## General rules for all nos targets
-if (NOT TOPDIR)
-get_filename_component(TOPDIR ${PROJECT_SOURCE_DIR}/../ ABSOLUTE)
-endif()
-if (NOT NOS_INSTALL_PREFIX)
-set(NOS_INSTALL_PREFIX      ${TOPDIR}/install/${CMAKE_SYSTEM_PROCESSOR})
+# Default to C99
+if(NOT CMAKE_C_STANDARD)
+  set(CMAKE_C_STANDARD 99)
 endif()
 
-## 本地安装目录
-set(LOCAL_INSTALL_DIR       ${NOS_INSTALL_PREFIX})
-
-message(STATUS "=> TOPDIR=${TOPDIR}")
-message(STATUS "=> NOS_INSTALL_PREFIX=${NOS_INSTALL_PREFIX}")
-message(STATUS "=> LOCAL_INSTALL_DIR=${LOCAL_INSTALL_DIR}")
-## End 
-
-if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-  message(STATUS "-> Setting build type to 'RelWithDebInfo'")
-  set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Choose the type of build." FORCE)
-  # Set the possible values of build type for cmake-gui
-  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+# Default to C++14
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 14)
 endif()
 
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
-# CMAKE_PREFIX_PATH是一个环境变量，用于指定CMake可以搜索软件或库的目录列表。
-# 它可以被find_package()、find_program()、find_library()、find_file()和find_path()等命令使用。
-# 这些命令将根据自己的文档添加bin、lib或include等子目录。CMAKE_PREFIX_PATH可以包含单个前缀或多个前缀，
-# UNIX上用冒号分隔，Windows上用分号分隔。默认情况下，它为空。它旨在由项目设置。
-set(CMAKE_PREFIX_PATH ${NOS_INSTALL_PREFIX})
+## 得到工作空间的根目录，通过ROS的环境变量判断
+if (NOT ROS_DISABLE)
+execute_process(COMMAND "printenv" "ROS_DISTRO" OUTPUT_VARIABLE ROS_DISTRO)
+string(REPLACE "\n" "" ROS_DISTRO "${ROS_DISTRO}")
+endif()
 
-find_package(libuv REQUIRED)
-find_package(spdlog REQUIRED)
-find_package(fmt REQUIRED)
-find_package(docopt REQUIRED)
+if (ROS_DISTRO STREQUAL "foxy")
+set(ROS_FOXY  ON)
+set(ROS2 ON)
+get_filename_component(WS_ROOT_DIR ${PROJECT_SOURCE_DIR}/../../ ABSOLUTE)
+else()
+get_filename_component(WS_ROOT_DIR ${PROJECT_SOURCE_DIR}/../ ABSOLUTE)
+endif()
 
+message(STATUS "=> WS_ROOT_DIR=${WS_ROOT_DIR}")
+message(STATUS "=> ROS_DISTRO=${ROS_DISTRO}")
+message(STATUS "=> ROS_FOXY=${ROS_FOXY}")
 
-## 安装目录
-set(CMAKE_INSTALL_PREFIX ${LOCAL_INSTALL_DIR})
+## 设定工作空间安装目录
+if (NOT WS_INSTALL_PREFIX)
+if (ROS2)
+set(WS_INSTALL_PREFIX      ${WS_ROOT_DIR}/install/${PROJECT_NAME})
+else()
+set(WS_INSTALL_PREFIX      ${WS_ROOT_DIR}/install/${CMAKE_SYSTEM_PROCESSOR})
+endif()
+endif()
+
+## 添加依赖的第三方库目录
+if (ROS2)
+set(WS_LIBRARY_PREFIX ${WS_ROOT_DIR}/install/nos_library)
+else()
+set(WS_LIBRARY_PREFIX ${WS_INSTALL_PREFIX})
+endif()
+
+## 设定默认的安装目录
+## 如果没有设定INSTALL_PREFIX, 默认安装到工作空间
+if (NOT ROS2)
+if (NOT INSTALL_PREFIX)
+set(CMAKE_INSTALL_PREFIX ${WS_INSTALL_PREFIX})
+else()
+set(CMAKE_INSTALL_PREFIX ${INSTALL_PREFIX})
+endif()
+endif()
+
+message(STATUS "=> WS_INSTALL_PREFIX=${WS_INSTALL_PREFIX}")
+message(STATUS "=> WS_LIBRARY_PREFIX=${WS_LIBRARY_PREFIX}")
+message(STATUS "=> CMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}")
+
+if (ROS2)
+# find dependencies
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+
+if(BUILD_TESTING)
+  find_package(ament_lint_auto REQUIRED)
+  # the following line skips the linter which checks for copyrights
+  # uncomment the line when a copyright and license is not present in all source files
+  #set(ament_cmake_copyright_FOUND TRUE)
+  # the following line skips cpplint (only works in a git repo)
+  # uncomment the line when this package is not in a git repo
+  #set(ament_cmake_cpplint_FOUND TRUE)
+  ament_lint_auto_find_test_dependencies()
+endif()
+
+endif()
+
+find_package(libuv REQUIRED PATHS ${WS_LIBRARY_PREFIX})
+find_package(spdlog REQUIRED PATHS ${WS_LIBRARY_PREFIX})
+find_package(fmt REQUIRED PATHS ${WS_LIBRARY_PREFIX})
+find_package(docopt REQUIRED PATHS ${WS_LIBRARY_PREFIX})
 
 ## set default include folder
 include_directories(
     ${PROJECT_SOURCE_DIR}/include
-    ${NOS_INSTALL_PREFIX}/include
+    ${WS_LIBRARY_PREFIX}/include
     )
+
 ## add local libs dir
-link_directories(${NOS_INSTALL_PREFIX}/lib)
+link_directories(${WS_LIBRARY_PREFIX}/lib)
 
 ## add src 
 add_subdirectory(src)
 
-## add test
+# add test
 add_subdirectory(test)
 
+if (ROS2)
+ament_package()
+endif()

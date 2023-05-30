@@ -137,7 +137,7 @@ public:
     /// 定义一个信号回调函数
     typedef std::function<void(Timer &)> Function;
 
-    Timer() : started_(false), loop_(nullptr), timer_handle_(nullptr) { }
+    Timer() : loop_(nullptr), timer_handle_(nullptr) { }
 
     ~Timer() 
     {
@@ -254,9 +254,9 @@ public:
 
 private:
     uv_loop_t *loop_;
-    bool started_;
+    bool started_ = false;
     uv_timer_t timer_;   
-    int period_;
+    int period_ = 0;
     Function timer_handle_;
 };
 

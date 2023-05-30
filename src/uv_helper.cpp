@@ -63,7 +63,7 @@ Loop::~Loop()
  */
 void Loop::run(RunMode mode)
 {
-    int ret = uv_run(loop_, (uv_run_mode)mode);
+    uv_run(loop_, (uv_run_mode)mode);
 
     //slog::trace("uv_run(mode={}) return {}", static_cast<int>(mode), ret);
 }
@@ -74,7 +74,7 @@ void Loop::run(RunMode mode)
  */
 void Loop::spin()
 {
-    int ret = uv_run(loop_, UV_RUN_DEFAULT);
+    uv_run(loop_, UV_RUN_DEFAULT);
     //slog::trace("uv_run(spin) return {}", ret);
 }
 

@@ -202,20 +202,20 @@ private:
     /// 地址
     std::string address_;
     /// 端口
-    int port_;
+    int port_ = 0;
     
     /// 名称
     std::string name_;
     /// 最大连接数
     int max_clients_num_;
     /// 是否已启动
-    bool started_;
+    bool started_ = false;
     /// 简要信息
     std::string brief_;
 
     /// TCP线程
     std::thread thread_;
-    bool thread_exit_;
+    bool thread_exit_ = false;
 
     /// TCP连接队列
     std::vector<std::unique_ptr<TcpConnection>> connections_;

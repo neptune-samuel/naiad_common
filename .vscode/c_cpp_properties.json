@@ -13,7 +13,22 @@
             "cppStandard": "gnu++17",
             "intelliSenseMode": "linux-gcc-x64",
             "configurationProvider": "ms-vscode.cmake-tools"
-        }
+        },
+        {
+            "name": "Linux-Ros2",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/include/*",
+                "${workspaceFolder}/../../install/nos_library/include/*",
+                "/opt/ros/foxy/include"
+            ],
+            "defines": ["SERIAL_RX_NOTIFY"],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c17",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "linux-gcc-x64",
+            "configurationProvider": "ms-vscode.cmake-tools"
+        }        
     ],
     "version": 4
 }

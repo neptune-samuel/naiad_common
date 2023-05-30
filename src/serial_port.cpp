@@ -181,7 +181,7 @@ static bool parse_options(const char *options, SerialSetting &set)
         char *end;
         //保存结果指针
         const char *result[4];
-        int index = 0;
+        unsigned int index = 0;
 
         // 必须要清空，允许不完整输入
         memset(result, 0, sizeof(result));
@@ -277,7 +277,7 @@ SerialPort::SerialPort(const std::string &device) : fd_(-1), path_(device)
         name_ = path_;
     }
 
-    statistics_ = { 0 };
+    statistics_ = { };
 
     rx_thread_running_ = false;
 }
@@ -294,7 +294,7 @@ SerialPort::~SerialPort()
 
 bool SerialPort::check_options(const char *options)
 {
-    SerialSetting cfg = { 0 };
+    SerialSetting cfg = { };
     return parse_options(options, cfg);
 }
 
@@ -305,7 +305,7 @@ const std::string & SerialPort::name()
 
 bool SerialPort::open(const char *options)
 {
-    SerialSetting cfg = { 0 };
+    SerialSetting cfg = { };
 
     if (is_opened())
     {
@@ -470,7 +470,7 @@ int SerialPort::read_with_epoll(int fd, int epoll_fd, void *buf, int size, int t
     else 
     {     
         #define MAX_EVENTS 10        
-        struct epoll_event ev, events[MAX_EVENTS];
+        struct epoll_event /*ev,*/ events[MAX_EVENTS];
         int64_t expired = nos::system::uptime() + timeout;
         int offset = 0;
 
