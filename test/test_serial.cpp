@@ -19,7 +19,7 @@
 int main(int argc, const char *argv[])
 {
     // 先初始化日志
-    slog::make_logger(APP_NAME, slog::LogLevel::Debug);
+    slog::make_spdlog_logger(APP_NAME, slog::LogLevel::Debug);
 
     slog::info(APP_NAME " started, build time: {} {}", __DATE__, __TIME__);
 

@@ -19,6 +19,9 @@ if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 14)
 endif()
 
+set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
+set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
+
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
@@ -94,33 +97,10 @@ find_package(spdlog REQUIRED PATHS ${WS_LIBRARY_PREFIX})
 find_package(fmt REQUIRED PATHS ${WS_LIBRARY_PREFIX})
 find_package(docopt REQUIRED PATHS ${WS_LIBRARY_PREFIX})
 
-message(STATUS "spdlog_FOUND: ${spdlog_FOUND}")
-message(STATUS "spdlog_VERSION: ${spdlog_VERSION}")
-message(STATUS "spdlog_INCLUDE_DIRS: ${spdlog_INCLUDE_DIRS}")
-message(STATUS "spdlog_LIBRARIES: ${spdlog_LIBRARIES}")
-message(STATUS "spdlog_LIBRARY: ${spdlog_LIBRARY}")
-message(STATUS "spdlog_DEFINITIONS: ${spdlog_DEFINITIONS}")
-
-message(STATUS "libuv_FOUND: ${libuv_FOUND}")
-message(STATUS "libuv_VERSION: ${libuv_VERSION}")
-message(STATUS "libuv_INCLUDE_DIRS: ${libuv_INCLUDE_DIRS}")
-message(STATUS "libuv_LIBRARIES: ${libuv_LIBRARIES}")
-message(STATUS "libuv_LIBRARY: ${libuv_LIBRARY}")
-message(STATUS "libuv_DEFINITIONS: ${libuv_DEFINITIONS}")
-
-message(STATUS "docopt_FOUND: ${docopt_FOUND}")
-message(STATUS "docopt_VERSION: ${docopt_VERSION}")
-message(STATUS "docopt_INCLUDE_DIRS: ${docopt_INCLUDE_DIRS}")
-message(STATUS "docopt_LIBRARIES: ${docopt_LIBRARIES}")
-message(STATUS "docopt_LIBRARY: ${docopt_LIBRARY}")
-message(STATUS "docopt_DEFINITIONS: ${docopt_DEFINITIONS}")
-
-message(STATUS "fmt_FOUND: ${fmt_FOUND}")
-message(STATUS "fmt_VERSION: ${fmt_VERSION}")
-message(STATUS "fmt_INCLUDE_DIRS: ${fmt_INCLUDE_DIRS}")
-message(STATUS "fmt_LIBRARIES: ${fmt_LIBRARIES}")
-message(STATUS "fmt_LIBRARY: ${fmt_LIBRARY}")
-message(STATUS "fmt_DEFINITIONS: ${fmt_DEFINITIONS}")
+message(STATUS "=> found spdlog : ${spdlog_VERSION}")
+message(STATUS "=> found libuv  : ${libuv_VERSION}")
+message(STATUS "=> found docopt : ${docopt_VERSION}")
+message(STATUS "=> found fmt    : ${fmt_VERSION}")
 
 ## set default include folder
 include_directories(

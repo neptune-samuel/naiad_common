@@ -1,16 +1,18 @@
 
-
+/**
+ * @file slog_logger.cpp
+ * @author Liu Chuansen (samule@neptune-robotics.com)
+ * @brief SLOG主函数接口
+ * @version 0.1
+ * @date 2023-05-31
+ * 
+ * @copyright Copyright (c) 2023
+ * 
+ */
 #include <memory>
 #include <mutex>
 #include <map>
 #include <iostream>
-
-#ifdef LOGGER_WITH_SPDLOG
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-#include <spdlog/sinks/rotating_file_sink.h>
-#include <spdlog/fmt/bin_to_hex.h>
-#endif 
 
 #include <common/logger.h>
 
@@ -44,7 +46,7 @@ static std::shared_ptr<Logger> __default_logger()
 
     if (s_default_logger == nullptr)
     {
-        s_default_logger = std::make_shared<Logger>("default", LogLevel::Info);        
+        s_default_logger = std::make_shared<Logger>("default");        
     }
 
     return s_default_logger;
@@ -148,79 +150,40 @@ void drop_logger(std::string const &name)
  * @brief 创建一个Logger
  * 
  * @param name 
- * @param level 
- * @param log_file 
- * @param file_size 
- * @param file_num 
+ * @param sink 指定一个sink
  * @return std::shared_ptr<Logger> 
  */
-std::shared_ptr<Logger> make_logger(std::string const &name, LogLevel level, std::string const &log_file, int file_size, int file_num)
+std::shared_ptr<Logger> make_logger(std::string const &name, std::shared_ptr<LoggerSink> sink)
 {
-    auto logger = std::make_shared<Logger>(name, level, log_file, file_size, file_num);
-    // 
-    //register_logger(std::move(logger));         
+    auto logger = std::make_shared<Logger>(name, std::move(sink));
     register_logger(logger);         
-
     return logger;
 }
 
-/**
- * @brief 创建一个Logger
- * 
- * @param name 
- * @param level 
- * @return std::shared_ptr<Logger> 
- */
-std::shared_ptr<Logger> make_logger(std::string const &name, LogLevel level)
+Logger::Logger(std::string const &name, std::shared_ptr<LoggerSink> sink) : name_(name), valid_(false)
 {
-    return make_logger(name, level, "", 0, 0);
-}
-
-
-#ifdef LOGGER_WITH_SPDLOG
-
-static spdlog::level::level_enum to_spdlog_level(LogLevel level)
-{
-    return static_cast<spdlog::level::level_enum>(level);
-}
-
-#endif 
-
-Logger::Logger(std::string const &name, LogLevel level, std::string const &log_file, int file_size, int file_num)
-{
-    this->name_ = name;
-
-#ifdef LOGGER_WITH_SPDLOG
-    std::vector<spdlog::sink_ptr> sinks;
-
-    auto console = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-    console->set_pattern("%Y-%m-%d %H:%M:%S.%e %^[%L] (%n) %v%$");
-    sinks.push_back(console);
-
-    if (log_file.size())
+    if (sink == nullptr)
     {
-        auto file = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(log_file, file_size, file_num);
-        file->set_pattern("%Y-%m-%d %H:%M:%S.%e %^[%L] %v%$");
-        sinks.push_back(file);
+        // 如果为空，使用一个默认的空的SINK
+        sink = std::make_shared<sink::LogNone>();        
     }
 
-    logger_ = std::make_shared<spdlog::logger>(name, begin(sinks), end(sinks));
-    
-    logger_->set_level(to_spdlog_level(level));
+    sink_ = std::move(sink);
 
-    // 注册到全局数据中
-    //spdlog::register_logger(logger_);  
-    //spdlog::set_default_logger(logger);
-#else 
-    std::cout << "+ create logger:" << name << std::endl;
-#endif 
+    // 建立sink
+    valid_ = sink_->setup(this->name_);
+
+    if (!valid_)
+    {
+        std::cout << "setup logger("<< sink_->name() << ") failed" << std::endl;
+    }
+
+    //std::cout << "+ create logger:" << name << std::endl;
 }
 
 
 Logger::~Logger()
-{
-    //spdlog::drop(logger_->name());
-
+{    
     //std::cout << "- destruct:" << name() << std::endl;
 }
 
@@ -234,29 +197,48 @@ std::string const &Logger::name()
 
 void Logger::log(LogLevel level, std::string const & msg)
 {
-#ifdef LOGGER_WITH_SPDLOG
-    logger_->log(to_spdlog_level(level), msg);
-#else 
-    std::cout << msg << std::endl;
-#endif 
+    if (valid_)
+    {
+        sink_->log(level, msg);
+    }
 }
 
-
-void Logger::dump(LogLevel level, void const *data, int size, std::string const &msg)
+void Logger::dump(LogLevel level, void const *data, size_t size, std::string const &msg)
 {
-#ifdef LOGGER_WITH_SPDLOG
-    const char *fmt = (size <= 16) ? "{:Xn}" : "{:X}";
-    std::string hex = fmt::format(fmt, spdlog::to_hex((const unsigned char *)data, (const unsigned char *)data + size, 16));
-    
-    logger_->log(to_spdlog_level(level), msg + hex);
-#else 
-    std::cout << "dump(todo):" << msg << std::endl;
-#endif 
+    std::string hex;
+    int size_per_line = 16;
+    const uint8_t *array = static_cast<const uint8_t *>(data);
+    for (size_t i = 0; i < size; ++ i)
+    {
+        if (!(i % size_per_line))
+        {
+            hex += fmt::format("{:04X}: ", i);
+        }
+
+        hex += fmt::format("{:02X} ", array[i]);
+    }
+
+    this->log(level, msg + hex);
+}
+
+void Logger::dump(LogLevel level, std::vector<uint8_t> const & data, std::string const &msg)
+{
+    std::string hex;
+    int size_per_line = 16;
+
+    for (size_t i = 0; i < data.size(); ++ i)
+    {
+        if (!(i % size_per_line))
+        {
+            hex += fmt::format("{:04X}: ", i);
+        }
+
+        hex += fmt::format("{:02X} ", data[i]);
+    }
+
+    this->log(level, msg + hex);
 }
 
 
-
-
-
-}
+} // slog
 

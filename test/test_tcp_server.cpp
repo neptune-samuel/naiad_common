@@ -24,7 +24,7 @@
 int main(int argc, const char *argv[])
 {
     // 先初始化日志
-    slog::make_logger(APP_NAME, slog::LogLevel::Trace);
+    slog::make_spdlog_logger(APP_NAME, slog::LogLevel::Trace);
     slog::info(APP_NAME " started, build time: {} {}", __DATE__, __TIME__);
 
     uv::Loop loop(uv::Loop::Type::New);
