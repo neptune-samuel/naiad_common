@@ -37,6 +37,52 @@ enum class LogLevel : int
     None = Off + 2,
 };
 
+/**
+ * @brief 获取日志等级的名称
+ * 
+ * @param level 
+ * @return const char* 
+ */
+static inline const char *LogLevelName(LogLevel level)
+{
+    switch(level)
+    {
+        case LogLevel::Trace:
+        return "Trace";
+        case LogLevel::Debug:
+        return "Debug";
+        case LogLevel::Info:
+        return "Info";
+        case LogLevel::Warning:
+        return "Warning";
+        case LogLevel::Error:
+        return "Error";
+        default:
+        return "";
+    }
+}
+
+/**
+ * @brief 获取日志等级的简称
+ * 
+ * @param level 
+ * @return const char* 
+ */
+static inline char LogLevelBriefName(LogLevel level)
+{
+    size_t index = static_cast<int>(level);
+    const char brief[] = "TDIWEON";
+    if (index < sizeof(brief))
+    {
+        return brief[index];
+    }
+    return '-';
+}
+
+/**
+ * @brief 一个日志SINK接口
+ * 
+ */
 class LoggerSink
 {
 public:    
@@ -49,6 +95,10 @@ public:
 };
 
 
+/**
+ * @brief Logger对象
+ * 
+ */
 class Logger
 {
 

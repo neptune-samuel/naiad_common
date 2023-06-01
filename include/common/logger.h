@@ -15,14 +15,40 @@
 
 #include "slog_logger.h"
 #include "slog_sink_spdlog.h"
+#include "slog_sink_stdout.h"
 #include "slog_sink_none.h"
 
 
 namespace slog 
 {
 
+
 /**
- * @brief 创建一个Logger
+ * @brief 创建一个空SINK，不输出任何信息
+ * 
+ * @param name 
+ * @return std::shared_ptr<Logger> 
+ */
+static inline std::shared_ptr<Logger> make_none_logger(std::string const &name)
+{
+    return make_logger(name, std::make_shared<sink::LogNone>());
+}
+
+/**
+ * @brief 创建一个标准输出的日志，线程安全
+ * 
+ * @param name 
+ * @param level 日志等级
+ * @return std::shared_ptr<Logger> 
+ */
+static inline std::shared_ptr<Logger> make_stdout_logger(std::string const &name, LogLevel level)
+{
+    return make_logger(name, std::make_shared<sink::Stdout>(level));
+}
+
+
+/**
+ * @brief 创建一个Logger，输出到console
  * 
  * @param name 
  * @param sink 指定一个sink
@@ -35,7 +61,7 @@ static inline std::shared_ptr<Logger> make_spdlog_logger(std::string const &name
 
 
 /**
- * @brief 创建一个Logger
+ * @brief 创建一个Logger,使用Spdlog，支持文件
  * 
  * @param name 
  * @param sink 指定一个sink
