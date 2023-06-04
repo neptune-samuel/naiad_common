@@ -34,6 +34,9 @@ install(EXPORT common-targets
     FILE common-targets.cmake 
     DESTINATION lib/cmake/common)
 
+## 安装头文件
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/ DESTINATION include)
+
 include(CMakePackageConfigHelpers)
 
 ## 输出配置文件，供find_package使用
