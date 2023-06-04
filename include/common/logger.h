@@ -14,9 +14,16 @@
  */
 
 #include "slog_logger.h"
-#include "slog_sink_spdlog.h"
 #include "slog_sink_stdout.h"
 #include "slog_sink_none.h"
+
+#ifdef SLOG_SINK_SPDLOG
+#include "slog_sink_spdlog.h"
+#endif 
+
+#ifdef SLOG_SINK_ROS
+#include "slog_sink_ros.h"
+#endif 
 
 
 namespace slog 
@@ -46,7 +53,7 @@ static inline std::shared_ptr<Logger> make_stdout_logger(std::string const &name
     return make_logger(name, std::make_shared<sink::Stdout>(level));
 }
 
-
+#ifdef SLOG_SINK_SPDLOG
 /**
  * @brief 创建一个Logger，输出到console
  * 
@@ -72,6 +79,14 @@ static inline std::shared_ptr<Logger> make_spdlog_logger(std::string const &name
 {
     return make_logger(name, std::make_shared<sink::SpdlogToFile>(level, log_file, file_size, file_num));
 }
+#endif 
+
+#ifdef SLOG_SINK_ROS
+static inline std::shared_ptr<Logger> make_ros_logger(rclcpp::Logger logger)
+{
+    return make_logger(name, std::make_shared<sink::RosLogger>(logger));
+}
+#endif 
 
 }
 
