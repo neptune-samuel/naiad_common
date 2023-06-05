@@ -32,7 +32,7 @@ int main(int argc, const char *argv[])
         dev = argv[1];
     }
 
-    nos::driver::SerialPort port(dev);
+    naiad::driver::SerialPort port(dev);
 
     port.open("115200");
 
@@ -56,12 +56,12 @@ int main(int argc, const char *argv[])
                 slog::error("read failed");
             }
             
-            nos::system::mdelay(1);
+            naiad::system::mdelay(1);
         }
 
         // timer.start(100, 1000, &port, [](uv::Timer &timer, void *data)
         //     {
-        //         auto port = static_cast<nos::driver::SerialPort *>(data);
+        //         auto port = static_cast<naiad::driver::SerialPort *>(data);
 
         //         port->write("Hello world", 11);                
         //     });
@@ -74,10 +74,10 @@ int main(int argc, const char *argv[])
         timer.bind(loop);
         timer.start(2000, 1000, [&port]([[maybe_unused]]uv::Timer &timer)
             {
-                //auto port = static_cast<nos::driver::SerialPort *>(data);
+                //auto port = static_cast<naiad::driver::SerialPort *>(data);
 
                 //timer.stop();
-                nos::driver::SerialStatistics stats = { };
+                naiad::driver::SerialStatistics stats = { };
                 port.get_statistics(stats);
 
                 slog::info("fifo: {} peak {}", stats.fifo_size, stats.fifo_peak_size);
@@ -104,7 +104,7 @@ int main(int argc, const char *argv[])
                 port.write(buf, size);
             }  
 
-            nos::system::mdelay(10);              
+            naiad::system::mdelay(10);              
         }
 
         slog::info("test thread exit");

@@ -1,6 +1,6 @@
 
-#ifndef __NOS_SERIAL_PORT_H__
-#define __NOS_SERIAL_PORT_H__
+#ifndef __NAIAD_SERIAL_PORT_H__
+#define __NAIAD_SERIAL_PORT_H__
 /**
  * @file serial_port.h
  * @author Liu Chuansen (samule@neptune-robotics.com)
@@ -27,7 +27,7 @@
 #endif 
 
 
-namespace nos 
+namespace naiad 
 {
 namespace driver 
 {
@@ -217,7 +217,7 @@ private:
 
 } // driver
 
-} // nos 
+} // naiad 
 
 
-#endif // __NOS_SERIAL_PORT_H__
+#endif // __NAIAD_SERIAL_PORT_H__

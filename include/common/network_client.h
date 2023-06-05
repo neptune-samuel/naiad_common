@@ -1,6 +1,6 @@
 
-#ifndef __NOS_NETWORK_CLIENT_H__
-#define __NOS_NETWORK_CLIENT_H__
+#ifndef __NAIAD_NETWORK_CLIENT_H__
+#define __NAIAD_NETWORK_CLIENT_H__
 
 /**
  * @file network_client.h
@@ -17,7 +17,7 @@
 #include <common/sys_time.h>
 
 
-namespace nos
+namespace naiad
 {
 
 // 放置于网络的命名空间
@@ -33,9 +33,9 @@ struct ClientInfo
     /// 是否连接
     bool connected;
     /// 连接时间
-    nos::system::SysTick up_time;
+    naiad::system::SysTick up_time;
     /// 断开时间
-    nos::system::SysTick down_time;
+    naiad::system::SysTick down_time;
 };
 
 /**
@@ -51,8 +51,8 @@ struct Host
 
 } // end network
 
-} // end nos
+} // end naiad
 
 
-#endif // __NOS_NETWORK_CLIENT_H__
+#endif // __NAIAD_NETWORK_CLIENT_H__
 

@@ -29,7 +29,7 @@
 #define ASYNC_READ_WITH_EPOLL  0
 
 
-namespace nos 
+namespace naiad 
 {
 
 namespace driver 
@@ -471,7 +471,7 @@ int SerialPort::read_with_epoll(int fd, int epoll_fd, void *buf, int size, int t
     {     
         #define MAX_EVENTS 10        
         struct epoll_event /*ev,*/ events[MAX_EVENTS];
-        int64_t expired = nos::system::uptime() + timeout;
+        int64_t expired = naiad::system::uptime() + timeout;
         int offset = 0;
 
         while ((offset < size) && (timeout > 0))
@@ -501,7 +501,7 @@ int SerialPort::read_with_epoll(int fd, int epoll_fd, void *buf, int size, int t
             }
 
             // 
-            timeout = expired - nos::system::uptime();
+            timeout = expired - naiad::system::uptime();
         }
 
         return offset;
@@ -882,4 +882,4 @@ int SerialPort::async_read(void *buf, int size)
 
 } // driver
 
-} // nos 
+} // end naiad 

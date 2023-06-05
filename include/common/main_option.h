@@ -20,7 +20,7 @@
 #include <map>
 #include <docopt/docopt.h>
 
-namespace nos 
+namespace naiad 
 {
 
 
@@ -120,7 +120,7 @@ protected:
 };
 
 
-} // end nos
+} // end naiad
 
 #endif // __MAIN_OPTIONS_H__
 

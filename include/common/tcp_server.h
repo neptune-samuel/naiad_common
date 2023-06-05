@@ -1,6 +1,6 @@
 
-#ifndef __NOS_TCPSERVER_H__
-#define __NOS_TCPSERVER_H__
+#ifndef __NAIAD_TCPSERVER_H__
+#define __NAIAD_TCPSERVER_H__
 
 /**
  * @file tcp_server.h
@@ -36,7 +36,7 @@
 #include <common/network_client.h>
 #include <common/network_frame.h>
 
-namespace nos
+namespace naiad
 {
 
 namespace network
@@ -258,7 +258,7 @@ private:
 
 } // end network
 
-} // end nos
+} // end naiad
 
 
-#endif // __NOS_TCPSERVER_H__
+#endif // __NAIAD_TCPSERVER_H__

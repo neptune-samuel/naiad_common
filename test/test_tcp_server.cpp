@@ -38,7 +38,7 @@ int main(int argc, const char *argv[])
     loop.signal(SIGTERM, signal_handle);
     loop.signal(SIGKILL, signal_handle);
 
-    nos::network::TcpServer tcp("test", "0.0.0.0", 9702);
+    naiad::network::TcpServer tcp("test", "0.0.0.0", 9702);
 
     tcp.start();
 
@@ -64,7 +64,7 @@ int main(int argc, const char *argv[])
     //             }
     //         }
 
-    //         nos::system::mdelay(1);
+    //         naiad::system::mdelay(1);
     //     }
     // });
 

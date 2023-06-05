@@ -82,7 +82,7 @@ static inline std::shared_ptr<Logger> make_spdlog_logger(std::string const &name
 #endif 
 
 #ifdef SLOG_SINK_ROS
-static inline std::shared_ptr<Logger> make_ros_logger(rclcpp::Logger logger)
+static inline std::shared_ptr<Logger> make_ros_logger(std::string const &name, rclcpp::Logger logger)
 {
     return make_logger(name, std::make_shared<sink::RosLogger>(logger));
 }

@@ -1,6 +1,6 @@
 
 #
-# cmake rules for nos_common
+# cmake rules for naiad_common
 # Author: LiuChuansen
 # Date: 20230512
 # 
@@ -64,6 +64,11 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/include
     ${WS_INSTALL_PREFIX}/include
     )
+
+if (WS_ROS)
+include_directories(    
+    ${ROS_ROOT_DIR}/include)
+endif()
 
 ## add local libs dir
 link_directories(${WS_INSTALL_PREFIX}/lib)

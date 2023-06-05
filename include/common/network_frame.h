@@ -1,6 +1,6 @@
 
-#ifndef __NOS_NETWORK_FRAME_H__
-#define __NOS_NETWORK_FRAME_H__
+#ifndef __NAIAD_NETWORK_FRAME_H__
+#define __NAIAD_NETWORK_FRAME_H__
 
 /**
  * @file network_frame.h
@@ -20,7 +20,7 @@
 #include <common/sys_time.h>
 //#include <common/logger.h>
 
-namespace nos
+namespace naiad
 {
 
 // 放置于网络的命名空间
@@ -57,7 +57,7 @@ public:
         //("--> DataFrame(Host const &host, uint8_t *data, int size)");
 
         // 使用一个时间戳来标记一个帧, 仅在数据创建时给值
-        time_stamp_ = nos::system::uptime();
+        time_stamp_ = naiad::system::uptime();
 
         // 初始化数据
         ::memcpy(data_, data, size);
@@ -272,8 +272,8 @@ private:
 
 } // end network
 
-} // end nos
+} // end naiad
 
 
-#endif // __NOS_NETWORK_FRAME_H__
+#endif // __NAIAD_NETWORK_FRAME_H__
 

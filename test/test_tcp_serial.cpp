@@ -91,8 +91,8 @@ public:
 
 private:
     std::string name_;
-    nos::driver::SerialPort serial_;
-    nos::network::TcpServer tcp_;
+    naiad::driver::SerialPort serial_;
+    naiad::network::TcpServer tcp_;
     int serial_rate_;
     std::thread main_thread_;
     bool main_running_;
@@ -142,7 +142,7 @@ private:
 int main(int argc, const char *argv[])
 {
     // 解析参数
-    auto opt = nos::chassis::LocalOption(APP_VERSION, argc, argv);
+    auto opt = naiad::chassis::LocalOption(APP_VERSION, argc, argv);
     // 显示参数
     //opt.dump();
 

@@ -1,6 +1,6 @@
 
-#ifndef __NOS_SYS_TIME_H__
-#define __NOS_SYS_TIME_H__
+#ifndef __NAIAD_SYS_TIME_H__
+#define __NAIAD_SYS_TIME_H__
 
 /**
  * @file sys_time.h
@@ -17,7 +17,7 @@
 #include <string>
 #include <thread>
 
-namespace nos
+namespace naiad
 {
 namespace system 
 {
@@ -270,6 +270,6 @@ static inline int64_t time_diff(const SysTime & a, const SysTime & b)
 
 } // end system
 
-} // end nos
+} // end naiad
 
-#endif // __NOS_SYS_TIME_H__
+#endif // __NAIAD_SYS_TIME_H__

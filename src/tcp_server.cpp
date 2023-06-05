@@ -22,7 +22,7 @@
 #include <common/sys_time.h>
 #include <common/tcp_server.h>
 
-namespace nos 
+namespace naiad 
 {
 
 namespace network
@@ -111,7 +111,7 @@ public:
         }
 
         connected_ = true;
-        up_time_ = nos::system::uptime();
+        up_time_ = naiad::system::uptime();
 
         // set tcp optoins
         {
@@ -156,7 +156,7 @@ public:
             else if (nread == UV_EOF)
             {
                 conn->connected_ = false;
-                conn->down_time_ = nos::system::uptime();
+                conn->down_time_ = naiad::system::uptime();
 
                 slog::debug("tcp client({}) connection lost", conn->brief());
                 if (conn->event_handle_)
@@ -307,8 +307,8 @@ private:
     // 连接端口
     int port_ = 0;
 
-    nos::system::SysTick up_time_;
-    nos::system::SysTick down_time_;
+    naiad::system::SysTick up_time_;
+    naiad::system::SysTick down_time_;
     
     /// 事件处理函数
     EventHandle event_handle_;
@@ -737,8 +737,8 @@ void TcpServer::dump_clients()
         auto &client = *it;
         slog::info("{}: {}:{} {} at {}", name_, client.address, client.port, 
             client.connected ? "connected" : "disconnected", 
-            client.connected ? nos::system::SysTick(client.up_time).to_time_string() \
-                : nos::system::SysTick(client.down_time).to_time_string());
+            client.connected ? naiad::system::SysTick(client.up_time).to_time_string() \
+                : naiad::system::SysTick(client.down_time).to_time_string());
     }
 }
 
@@ -847,5 +847,5 @@ bool TcpServer::send(DataFrame const &frame)
 
 } // network
 
-} // nos
+} // end naiad
 

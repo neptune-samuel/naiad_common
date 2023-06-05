@@ -19,7 +19,7 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "${workspaceFolder}/include/*",
-                "${workspaceFolder}/../../install/nos_library/include/*",
+                "${workspaceFolder}/../../install/include/*",
                 "/opt/ros/foxy/include"
             ],
             "defines": ["SERIAL_RX_NOTIFY"],
