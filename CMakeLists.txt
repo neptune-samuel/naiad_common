@@ -62,8 +62,7 @@ message(STATUS "=> found fmt    : ${fmt_VERSION}")
 ## set default include folder
 include_directories(
     ${PROJECT_SOURCE_DIR}/include
-    ${WS_INSTALL_PREFIX}/include
-    )
+    ${WS_INSTALL_PREFIX}/include)
 
 if (WS_ROS)
 include_directories(    

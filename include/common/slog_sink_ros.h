@@ -32,7 +32,7 @@ namespace sink
 class RosLogger: public slog::LoggerSink
 {
 public:
-    RosLogger(rclcpp::Logger logger) : logger_(logger) { }
+    RosLogger(std::string const &logger_name) : logger_(rclcpp::get_logger(logger_name)) { }
 
     bool setup([[maybe_unused]]std::string const & name) 
     { 
