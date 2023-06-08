@@ -153,21 +153,25 @@ public:
                     conn->event_handle_(*conn, Event::ReadAvailable, (unsigned char *)buf->base,  static_cast<int>(nread));
                 }
             }
-            else if (nread == UV_EOF)
+            else 
             {
                 conn->connected_ = false;
                 conn->down_time_ = naiad::system::uptime();
 
-                slog::debug("tcp client({}) connection lost", conn->brief());
+                if (nread == UV_EOF)
+                {
+                    slog::debug("tcp client({}) connection lost", conn->brief());
+                }
+                else 
+                {
+                    // client read error ?
+                    slog::error("tcp client({}) read failed, ret={}", conn->brief(), uv_strerror(nread));
+                }
+                
                 if (conn->event_handle_)
                 {
                     conn->event_handle_(*conn, Event::ConnectionLost, nullptr, 0);
                 }
-            }
-            else 
-            {
-                // client read error ?
-                slog::error("tcp client({}) read failed, ret={}", conn->brief(), uv_strerror(nread));
             }
 
             // 释放空间

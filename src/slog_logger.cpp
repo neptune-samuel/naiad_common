@@ -203,15 +203,27 @@ void Logger::log(LogLevel level, std::string const & msg)
     }
 }
 
+
+// 如果长度小于16个，打印在一行
+// 否则换行打印, 每隔十六个换行打印
 void Logger::dump(LogLevel level, void const *data, size_t size, std::string const &msg)
 {
     std::string hex;
     int size_per_line = 16;
+    if (size >= size_per_line)
+    {
+        hex = "\r\n";
+    }
     const uint8_t *array = static_cast<const uint8_t *>(data);
     for (size_t i = 0; i < size; ++ i)
     {
         if (!(i % size_per_line))
         {
+            if (i > 0)
+            {
+                hex += "\r\n";
+            }
+
             hex += fmt::format("{:04X}: ", i);
         }
 
@@ -225,11 +237,19 @@ void Logger::dump(LogLevel level, std::vector<uint8_t> const & data, std::string
 {
     std::string hex;
     int size_per_line = 16;
-
+    if (data.size() >= size_per_line)
+    {
+        hex = "\r\n";
+    }
     for (size_t i = 0; i < data.size(); ++ i)
     {
         if (!(i % size_per_line))
         {
+            if (i > 0)
+            {
+                hex += "\r\n";
+            }
+
             hex += fmt::format("{:04X}: ", i);
         }
 

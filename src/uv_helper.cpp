@@ -140,7 +140,7 @@ bool Loop::signal(int signum, SignalFunction function)
         auto signal = *(lp->signals_[signum]);
         if (signal.function)
         {
-            signal.function(*lp, signum);
+            signal.function(signum);
         }
 
     }, signum);  

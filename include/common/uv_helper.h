@@ -48,7 +48,7 @@ public:
     };
 
     /// 定义一个信号回调函数
-    typedef std::function<void(Loop &, int)> SignalFunction;
+    typedef std::function<void(int)> SignalFunction;
 
     /**
      * @brief 创建一个LOOP
@@ -380,11 +380,6 @@ public:
     TcpServer(const TcpServer &) = delete;
     TcpServer & operator=(const TcpServer &) = delete;
 
-protected:
-    uv_loop_t *loop_;
-    uv_tcp_t server_;
-    uv_async_t async_stop_;
-
     /**
      * @brief 返回loop对象
      * 
@@ -394,6 +389,12 @@ protected:
     {
         return loop_;
     }
+    
+protected:
+    uv_loop_t *loop_;
+    uv_tcp_t server_;
+    uv_async_t async_stop_;
+
 
     /**
      * @brief 绑定到指定接口

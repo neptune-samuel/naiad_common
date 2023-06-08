@@ -10,7 +10,7 @@ int main(int argc, const char *argv[])
 
     uv::Loop loop(uv::Loop::Type::New);
 
-    auto signal_handle = [](uv::Loop &loop, int signum){
+    auto signal_handle = [&](int signum){
             std::cout << "get signal" << signum << std::endl;
             loop.stop();
         };
