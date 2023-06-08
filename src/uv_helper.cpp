@@ -205,7 +205,13 @@ int TcpServer::bind(const std::string &ip, int port)
     // 初始化一个TCP的服务
     uv_tcp_init(loop_, &server_);     
     
-    uv_ip4_addr(ip.c_str(), port, &addr);        
+    int ret = uv_ip4_addr(ip.c_str(), port, &addr);    
+    if (ret != 0)
+    {
+        slog::warning("Invalid tcp server address({}) or port({})", ip, port);
+        return ret;
+    }
+    
     return uv_tcp_bind(&server_, (const struct sockaddr *)&addr, 0);
 }    
 

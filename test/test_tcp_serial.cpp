@@ -182,7 +182,7 @@ int main(int argc, const char *argv[])
 
     // 创建一个定时器，做一些事情 
     uv::Timer timer(loop.get());
-    timer.start(1000, 5000, [](uv::Timer &timer){
+    timer.start(1000, 5000, [](){
         slog::info("timer function");
         // int x = 0;
         // int y = 10;

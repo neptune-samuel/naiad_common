@@ -135,7 +135,7 @@ class Timer
 public:
 
     /// 定义一个信号回调函数
-    typedef std::function<void(Timer &)> Function;
+    typedef std::function<void()> Function;
 
     Timer() : loop_(nullptr), timer_handle_(nullptr) { }
 
@@ -226,7 +226,7 @@ public:
                     auto self = reinterpret_cast<Timer *>(handle->data);
                     if (self && self->timer_handle_)
                     {
-                        self->timer_handle_(*self);
+                        self->timer_handle_();
                     }                
                 }, 
                 delay_ms, period_ms);

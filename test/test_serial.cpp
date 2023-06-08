@@ -59,20 +59,13 @@ int main(int argc, const char *argv[])
             naiad::system::mdelay(1);
         }
 
-        // timer.start(100, 1000, &port, [](uv::Timer &timer, void *data)
-        //     {
-        //         auto port = static_cast<naiad::driver::SerialPort *>(data);
-
-        //         port->write("Hello world", 11);                
-        //     });
-
         #endif 
 
         #if ASYNC_READ
         port.async_read_start();
 
         timer.bind(loop);
-        timer.start(2000, 1000, [&port]([[maybe_unused]]uv::Timer &timer)
+        timer.start(2000, 1000, [&port]()
             {
                 //auto port = static_cast<naiad::driver::SerialPort *>(data);
 

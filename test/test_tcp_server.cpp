@@ -45,10 +45,10 @@ int main(int argc, const char *argv[])
     // 测试TCP关闭
     // uv::Timer timer;
     // timer.bind(loop);
-    // timer.start(5000, [&tcp](uv::Timer &self){
+    // timer.start(5000, [&tcp](){
     //         slog::info("stop tcp server");
     //         tcp.stop();
-    //         self.stop();
+    //         timer.stop();
     //     });
 
     // 接收和发送处理 -- 使用独立线程
