@@ -1,4 +1,7 @@
 
+#ifndef __NAIAD_VOFA_SERVICE_H__
+#define __NAIAD_VOFA_SERVICE_H__
+
 /**
  * @file vofa_service.h
  * @author Liu Chuansen (samule@neptune-robotics.com)
@@ -25,6 +28,8 @@ namespace network {
 class VofaService
 {
 public:
+
+    using SharedPtr = std::shared_ptr<VofaService>;
     /**
      * @brief IPV4地址
      * 
@@ -33,7 +38,7 @@ public:
      * @param data_set 数据集
      * @param period_ms 周期，0 - 使用上报触发，> 0， 周期触发
      */
-    VofaService(std::string const & ipv4_address, int ip_port, std::vector<uint32_t> data_set, int period_ms = 0)
+    VofaService(std::string const & ipv4_address, int ip_port, std::vector<uint32_t> const & data_set, int period_ms = 0)
     {
         name_ = "vofa-" + std::to_string(ip_port);
 
@@ -51,7 +56,7 @@ public:
     }
 
     /// 启动该服务
-    void start()
+    bool start()
     {
         // 看看周期是否大于0, 如果大于，工作在定期模式
         if (report_period_ > 0)
@@ -64,7 +69,14 @@ public:
                 });      
         }
 
-        tcp_server_->start();
+        return tcp_server_->start();
+    }
+
+    /// @brief 返回服务是否在运行
+    /// @return 
+    bool is_running()
+    {
+        return tcp_server_->is_running();
     }
 
     void stop()
@@ -99,6 +111,20 @@ public:
         {
             send_datas();
         }
+    }
+
+    /// @brief 返回地址
+    /// @return 
+    std::string const & get_address()
+    {
+        return tcp_server_->get_address();
+    }
+
+    /// @brief 返回TCP的端口
+    /// @return 
+    int get_port()
+    {
+        return tcp_server_->get_port();
     }
 
     /**
@@ -199,4 +225,5 @@ private:
 }
 
 
+#endif // __NAIAD_VOFA_SERVICE_H__
 

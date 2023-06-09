@@ -115,6 +115,18 @@ public:
         return args_[option] ? args_[option].asString() : empty;
     }
 
+    /**
+     * @brief 返回字串列表参数
+     * 
+     * @param option 
+     * @return const std::string& 
+     */
+    const std::vector<std::string> &get_string_array(const std::string &option)
+    {
+        static const std::vector<std::string> empty = { };
+        return args_[option] ? args_[option].asStringList() : empty;
+    }
+
 protected:
     std::map<std::string, docopt::value> args_;
 };

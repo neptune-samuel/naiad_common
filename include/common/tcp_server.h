@@ -54,6 +54,8 @@ class TcpConnection;
 class TcpServer : public uv::TcpServer
 {
 public:
+    // 重定义为一个类型
+    using SharedPtr = std::shared_ptr<TcpServer>;
 
     /// 创建一个常量，表示所有主机，发送时使用
     static const Host AllClients;
@@ -126,6 +128,21 @@ public:
      * @return false 
      */
     bool is_running();
+
+    /// @brief 返回地址
+    /// @return 
+    std::string const & get_address()
+    {
+        return address_;
+    }
+
+    /// @brief 返回端口号
+    /// @return 
+    int get_port()
+    {
+        return port_;
+    }
+
 
     /**
      * @brief 返回当前接收的帧数量

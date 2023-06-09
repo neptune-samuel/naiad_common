@@ -209,7 +209,7 @@ void Logger::log(LogLevel level, std::string const & msg)
 void Logger::dump(LogLevel level, void const *data, size_t size, std::string const &msg)
 {
     std::string hex;
-    int size_per_line = 16;
+    std::size_t size_per_line = 16;
     if (size >= size_per_line)
     {
         hex = "\r\n";
@@ -236,7 +236,7 @@ void Logger::dump(LogLevel level, void const *data, size_t size, std::string con
 void Logger::dump(LogLevel level, std::vector<uint8_t> const & data, std::string const &msg)
 {
     std::string hex;
-    int size_per_line = 16;
+    std::size_t size_per_line = 16;
     if (data.size() >= size_per_line)
     {
         hex = "\r\n";
