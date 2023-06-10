@@ -19,6 +19,7 @@
 #include <set>
 #include <vector>
 #include <functional>
+#include <regex>
 
 
 namespace cxxargs
@@ -71,6 +72,15 @@ namespace helper
             return false;
         }
         return input.substr(input.length() - mark.length()) == mark;
+    }
+
+    /// @brief 输入的字串是事为数字
+    /// @param str 
+    /// @return 
+    bool is_number(std::string const & str)
+    {
+        std::regex pattern("^[-+]?[0-9]*\\.?[0-9]+$"); // 匹配数字的正则表达式
+        return std::regex_match(str, pattern);
     }
 }
 

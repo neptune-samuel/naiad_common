@@ -106,7 +106,7 @@ void Stdout::log(slog::LogLevel level, std::string const &msg)
 #endif 
 
     // output log level  [T]
-    oss << " [" << slog::LogLevelBriefName(level) << "]";
+    oss << " [" << slog::log_level_short_name(level) << "]";
 
     // output logger name
     oss << " (" << name_ << ") ";

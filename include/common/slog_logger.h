@@ -18,6 +18,7 @@
 #include <vector>
 #include <type_traits>
 #include <cstdio>
+#include <algorithm>
 
 #include <fmt/core.h>
 #include <fmt/format.h>
@@ -43,7 +44,7 @@ enum class LogLevel : int
  * @param level 
  * @return const char* 
  */
-static inline const char *LogLevelName(LogLevel level)
+static inline const char *log_level_name(LogLevel level)
 {
     switch(level)
     {
@@ -68,7 +69,7 @@ static inline const char *LogLevelName(LogLevel level)
  * @param level 
  * @return const char* 
  */
-static inline char LogLevelBriefName(LogLevel level)
+static inline char log_level_short_name(LogLevel level)
 {
     size_t index = static_cast<int>(level);
     const char brief[] = "TDIWEON";
@@ -77,6 +78,38 @@ static inline char LogLevelBriefName(LogLevel level)
         return brief[index];
     }
     return '-';
+}
+
+/**
+ * @brief 将字串转换日志名称，支持短名称如T D, d等
+ * 
+ * @param level 
+ * @return LogLevel 
+ */
+static inline LogLevel log_level_from_name(std::string const &level)
+{
+    // 先转成全小写
+    std::string in;
+    for (auto & c : level){
+        in.push_back(std::tolower(c));
+    }
+
+    const std::string level_names[] = {"trace", "debug", "info", "warning", "error"};
+    const LogLevel levels[] = {LogLevel::Trace, LogLevel::Debug, LogLevel::Info, LogLevel::Warning, LogLevel::Error};
+
+    // 比较每个字串
+    for (int i = 0; i < 5; i ++){
+
+        if ((in.size() == 1) && (level_names[i][0] == in[0])){
+            return levels[i];
+        }
+
+        if (level_names[i] == in){
+            return levels[i];
+        }
+    }
+
+    return LogLevel::None;
 }
 
 /**
