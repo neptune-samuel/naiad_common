@@ -21,7 +21,7 @@
 
 #define APP_NAME  "tcpserver"
 
-int main(int argc, const char *argv[])
+int main()
 {
     // 先初始化日志
     slog::make_stdout_logger(APP_NAME, slog::LogLevel::Trace);

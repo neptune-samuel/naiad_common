@@ -5,7 +5,7 @@
 
 #include <common/uv_helper.h>
 
-int main(int argc, const char *argv[])
+int main()
 {
 
     uv::Loop loop(uv::Loop::Type::New);

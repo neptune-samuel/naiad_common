@@ -9,7 +9,7 @@
 #include "common/logger.h"
 #include "common/vofa_service.h"
 
-int main(int argc, const char *argv[])
+int main()
 {
     // 先初始化日志
     slog::make_stdout_logger("test_vofa", slog::LogLevel::Trace);
