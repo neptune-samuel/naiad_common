@@ -10,6 +10,7 @@ cmake_minimum_required(VERSION 3.13)
 project(naiad_common VERSION 0.1)
 
 set(RULES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/rules)
+set(CMAKE_BUILD_TYPE "Debug")
 
 include(${RULES_DIR}/ws_common.cmake)
 

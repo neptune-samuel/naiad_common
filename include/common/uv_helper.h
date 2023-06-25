@@ -16,7 +16,7 @@
 #include <string>
 #include <iostream>
 #include <functional>
-#include <map>
+#include <unordered_map>
 #include <memory>
 
 #include <uv.h>
@@ -123,7 +123,7 @@ private:
     uv_loop_t *loop_;  
 
     /// 信号处理队列
-    std::map<int, std::unique_ptr<Signal>> signals_; 
+    std::unordered_map<int, std::unique_ptr<Signal>> signals_; 
 
     /// 用来实现异步停止
     uv_async_t async_stop_;

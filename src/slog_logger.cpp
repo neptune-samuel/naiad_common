@@ -11,7 +11,7 @@
  */
 #include <memory>
 #include <mutex>
-#include <map>
+#include <unordered_map>
 #include <iostream>
 
 #include <common/logger.h>
@@ -24,7 +24,7 @@ namespace slog
     Logger管理    
 */
 static std::shared_ptr<Logger> s_default_logger;
-static std::map<std::string, std::shared_ptr<Logger>> s_logger_registry;
+static std::unordered_map<std::string, std::shared_ptr<Logger>> s_logger_registry;
 static std::mutex s_registry_mutex;
 
 

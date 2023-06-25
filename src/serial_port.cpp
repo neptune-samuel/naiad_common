@@ -599,9 +599,7 @@ int SerialPort::read(void *buf, int size, int timeout)
     if (rx_size > 0)
     {
         statistics_.rx_bytes += rx_size;
-
-        //slog::trace("serial({}) read: {:X}", name_, spdlog::to_hex((const unsigned char *)buf, (const unsigned char *)buf + rx_size, 16));
-        slog::trace_data(buf, size, "serial({}) read({}):", name_, size);
+        slog::trace_data(buf, rx_size, "serial({}) read({}):", name_, rx_size);
     }
 
     return rx_size;
@@ -614,7 +612,6 @@ int SerialPort::write(const void *buf, int size)
         return -1;
     }
 
-    //slog::trace("serial({}) write: {:X}", name_, spdlog::to_hex((const unsigned char *)buf, (const unsigned char *)buf + size, 16));
     slog::trace_data(buf, size, "serial({}) write({}):", name_, size);
 
     int ret;
@@ -784,7 +781,6 @@ bool SerialPort::async_read_start(int queue_size)
                     } 
                 }
 
-                //slog::trace("serial({}) read: {:X}", name_, spdlog::to_hex((const unsigned char *)buf, (const unsigned char *)buf + rx_size, 16));
                 slog::trace_data(buf, rx_size, "serial({}) read({}):", this->name_, rx_size);
             } 
             else 

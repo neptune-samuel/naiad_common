@@ -15,7 +15,7 @@
 #include <iostream>
 #include <iomanip>
 #include <string>
-#include <map>
+#include <unordered_map>
 #include <set>
 #include <vector>
 #include <functional>
@@ -493,7 +493,7 @@ public:
 
 private:
     std::string app_name_;
-    std::map<OptionIdType, Option> options_;
+    std::unordered_map<OptionIdType, Option> options_;
     std::vector<std::string> unmatched_args_;
     OptionIdType help_id_;
     bool has_help_id_ = false;
