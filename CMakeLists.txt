@@ -5,7 +5,7 @@
 # Date: 20230512
 # 
 # 
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.10)
 
 project(naiad_common VERSION 0.1)
 
