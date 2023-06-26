@@ -567,7 +567,7 @@ void TcpServer::loop_thread()
                 pendings = tx_frames_.size();
             }
 
-            slog::debug("{}: pop tx frame-{}, pending:{}", name_, frame.id(), pendings);
+            slog::trace("{}: pop tx frame-{}, pending:{}", name_, frame.id(), pendings);
                         
             if (!frame.is_empty())
             {
@@ -577,7 +577,7 @@ void TcpServer::loop_thread()
                 {
                     for (auto &it : connections_)
                     {
-                        slog::debug("{}: send frame-{} to host:{}", name_, frame.id(), (*it).brief());
+                        slog::trace("{}: send frame-{} to host:{}", name_, frame.id(), (*it).brief());
                         (*it).send(frame);
                     }
                 }
@@ -590,7 +590,7 @@ void TcpServer::loop_thread()
 
                     if (it != connections_.end())
                     {
-                        slog::debug("{}: send frame-{} to host:{}", name_, frame.id(), it->get()->brief());
+                        slog::trace("{}: send frame-{} to host:{}", name_, frame.id(), it->get()->brief());
                         it->get()->send(frame);                    
                     }
                     else 
@@ -671,7 +671,7 @@ void TcpServer::setup_connection()
             {
                 // 创建一个队列 
                 DataFrame frame(connection.get_host(), data, size);
-                slog::debug("{}: queue rx frame-{}(size:{}, from:{}) pending:{}", name_, frame.id(), size, connection.brief(), rx_frames_.size());
+                slog::trace("{}: queue rx frame-{}(size:{}, from:{}) pending:{}", name_, frame.id(), size, connection.brief(), rx_frames_.size());
 
                 // 入队列 
                 std::lock_guard<std::mutex> lock(rx_mutex_);
@@ -776,7 +776,7 @@ DataFrame TcpServer::receive()
     DataFrame frame = std::move(rx_frames_.front());
     rx_frames_.pop();
     
-    slog::debug("{}: pop rx frame-{}, pending:{}", name_, frame.id(), rx_frames_.size());
+    slog::trace("{}: pop rx frame-{}, pending:{}", name_, frame.id(), rx_frames_.size());
 
     return frame;
 }
@@ -799,7 +799,7 @@ bool TcpServer::send(Host const & host, uint8_t const * const data, int size)
 
     DataFrame frame(host, data, size);
 
-    slog::debug("{}: queue tx frame-{}(size:{}, to:{}:{}) pending:{}", name_, frame.id(), size, host.address, host.port, tx_frames_.size());
+    slog::trace("{}: queue tx frame-{}(size:{}, to:{}:{}) pending:{}", name_, frame.id(), size, host.address, host.port, tx_frames_.size());
 
     std::lock_guard<std::mutex> lock(tx_mutex_);
     tx_frames_.emplace(std::move(frame));

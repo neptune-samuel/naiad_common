@@ -95,7 +95,7 @@ public:
         return *this;
     }
 
-    std::string to_string()
+    std::string to_string() const
     {
         char buf[100] = { 0 };
         std::time_t t = count_ / 1000;
@@ -107,12 +107,12 @@ public:
         return std::string(buf);
     }
 
-    int64_t get_ms()
+    int64_t get_ms() const
     {
         return count_;
     }
 
-    int64_t get_second()
+    int64_t get_second() const
     {
         return (count_ / 1000);
     }
@@ -176,7 +176,7 @@ public:
      * 
      * @return SysTime 
      */
-    SysTime to_time()
+    SysTime to_time() const
     {
         int64_t diff = uptime() - count_;
         return SysTime(now() - diff);
@@ -187,18 +187,18 @@ public:
      * 
      * @return std::string 
      */
-    std::string to_time_string()
+    std::string to_time_string() const
     {
         SysTime t = to_time();
         return t.to_string();
     }
 
-    int64_t get_ms()
+    int64_t get_ms() const
     {
         return count_;
     }
 
-    int64_t get_second()
+    int64_t get_second() const
     {
         return (count_ / 1000);
     }
@@ -206,7 +206,7 @@ public:
     /// @brief 判当前时刻是否已过了指定的时长
     /// @param ms 毫秒
     /// @return 
-    bool is_after(int64_t ms)
+    bool is_after(int64_t ms) const
     {
         return (uptime() > (count_ + ms));
     }

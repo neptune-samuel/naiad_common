@@ -396,6 +396,9 @@ bool SerialPort::open(const char *options)
         return false;
     }
 
+    // 清空收发缓存 
+    tcflush(fd_, TCIOFLUSH);
+
     slog::debug("serial({}) open success", name_);
 
     return true;
