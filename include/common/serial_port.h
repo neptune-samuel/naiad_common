@@ -170,7 +170,7 @@ public:
      * 
      * @param stats 
      */
-    void get_statistics(SerialStatistics &stats);
+    SerialStatistics get_statistics();
 
     /**
      * @brief 检测串口参数是否合法
@@ -205,6 +205,7 @@ private:
 
     /// 串口统计信息
     SerialStatistics statistics_;
+    std::mutex statistics_mutex_;
     bool rx_queue_half_alert_ = false;
     bool rx_queue_three_quarter_alert_ = false;
     bool rx_queue_full_alert_ = false;

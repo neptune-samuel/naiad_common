@@ -70,8 +70,7 @@ int main(int argc, const char *argv[])
                 //auto port = static_cast<naiad::driver::SerialPort *>(data);
 
                 //timer.stop();
-                naiad::driver::SerialStatistics stats = { };
-                port.get_statistics(stats);
+                naiad::driver::SerialStatistics stats = port.get_statistics();
 
                 slog::info("fifo: {} peak {}", stats.fifo_size, stats.fifo_peak_size);
                 slog::info("tx  : {} ", stats.tx_bytes);

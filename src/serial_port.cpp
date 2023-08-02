@@ -437,9 +437,10 @@ void SerialPort::close()
     }
 }
 
-void SerialPort::get_statistics(SerialStatistics &stats)
+SerialStatistics SerialPort::get_statistics()
 {
-    stats = statistics_;
+    std::lock_guard<std::mutex> lock(statistics_mutex_);    
+    return statistics_;
 }
 
 
@@ -600,9 +601,11 @@ int SerialPort::read(void *buf, int size, int timeout)
     int rx_size = read_with_select(fd_, buf, size, timeout);
 
     if (rx_size > 0)
-    {
-        statistics_.rx_bytes += rx_size;
+    {        
         slog::trace_data(buf, rx_size, "serial({}) read({}):", name_, rx_size);
+
+        std::lock_guard<std::mutex> lock(statistics_mutex_);
+        statistics_.rx_bytes += rx_size;        
     }
 
     return rx_size;
@@ -652,6 +655,7 @@ int SerialPort::write(const void *buf, int size)
         slog::warning("serial({}) write {} bytes, but expect {} bytes", name_, offset, size);
     }
 
+    std::lock_guard<std::mutex> lock(statistics_mutex_);        
     statistics_.tx_bytes += offset;
 
     return offset;
@@ -720,8 +724,12 @@ bool SerialPort::async_read_start(int queue_size)
             int rx_size = read_with_select(fd_, buf, sizeof(buf), 10);
             #endif 
             if (rx_size > 0)
-            {                
-                statistics_.rx_bytes += rx_size;
+            {   
+                
+                {
+                    std::lock_guard<std::mutex> lock(statistics_mutex_);                             
+                    statistics_.rx_bytes += rx_size;
+                }
 
                 // 将数据放放队列中
                 // 如果接收队列的数据小于设定最大小
@@ -744,6 +752,8 @@ bool SerialPort::async_read_start(int queue_size)
                     if (this->rx_queue_.size() > this->statistics_.fifo_peak_size)
                     {    
                         slog::debug("serial({}) rx fifo peak rise: {} -> {}", this->name_, this->statistics_.fifo_peak_size, this->rx_queue_.size());
+
+                        std::lock_guard<std::mutex> lock(statistics_mutex_); 
                         this->statistics_.fifo_peak_size = this->rx_queue_.size();
                     }
 
@@ -775,13 +785,15 @@ bool SerialPort::async_read_start(int queue_size)
                 }
                 else 
                 {
-                    statistics_.rx_drop_bytes += rx_size;
 
                     if (!this->rx_queue_full_alert_)
                     {
                         slog::warning("serial({}) fifo full, drop {} bytes, more meessage will be subpressed", this->name_, rx_size);
                         this->rx_queue_full_alert_ = true;
                     } 
+
+                    std::lock_guard<std::mutex> lock(statistics_mutex_); 
+                    statistics_.rx_drop_bytes += rx_size;
                 }
 
                 slog::trace_data(buf, rx_size, "serial({}) read({}):", this->name_, rx_size);
