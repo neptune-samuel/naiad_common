@@ -65,6 +65,9 @@ public:
     static const uv::AsyncSignal::SignalId SignalReceiveFrame;
     static const uv::AsyncSignal::SignalId SignalConnectionLost;
 
+    /// 定义一个接收回调函数
+    typedef std::function<void(Host const & host, void const * const data, std::size_t size)> ReceiveCallback;
+
     /**
      * @brief 创建一个TCP服务端
      * 
@@ -73,7 +76,7 @@ public:
      * @param port 端口
      * @param max_clients_num  最大连接数，0 不限制 
      */
-    TcpServer(std::string const &name, std::string const &address, int port, int max_clients_num = 10);
+    TcpServer(std::string const &name, std::string const &address, int port, std::size_t max_clients_num = 10);
 
     /**
      * @brief 创建一个默认参数的TCP服务
@@ -110,10 +113,10 @@ public:
     /**
      * @brief 启动TCP服务，开始监听指定端口
      * 
-     * @return true 
-     * @return false 
+     * @param callbacke simple callback mode, rx queue will be disabled 
+     * @return bool
      */
-    bool start();
+    bool start(ReceiveCallback callback = nullptr);
 
     /**
      * @brief 停止TCP服务，它将关闭所有连接
@@ -187,7 +190,7 @@ public:
      * @return true 发送成功
      * @return false 发送失败
      */
-    bool send(Host const & host, uint8_t const * const data, int size);
+    bool send(Host const & host, void const * const data, int size);
 
 
     /**
@@ -224,7 +227,7 @@ private:
     /// 名称
     std::string name_;
     /// 最大连接数
-    int max_clients_num_;
+    std::size_t max_clients_num_;
     /// 是否已启动
     bool started_ = false;
     /// 简要信息
@@ -250,6 +253,9 @@ private:
 
     // 给外部线程使用，通知外部线程数据准备好
     uv::AsyncSignal rx_notify_;
+
+    // 接收回调函数 
+    ReceiveCallback receive_callback_;
 
     /**
      * @brief 处理新连接

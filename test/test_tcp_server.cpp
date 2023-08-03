@@ -40,6 +40,13 @@ int main()
 
     naiad::network::TcpServer tcp("test", "0.0.0.0", 9702);
 
+
+    // tcp.start([&tcp](naiad::network::Host const &host, void const * const data, std::size_t size){
+        
+    //     naiad::network::DataFrame frame(host, (uint8_t *)data, size);
+    //     tcp.send(frame);
+    // });
+
     tcp.start();
 
     // 测试TCP关闭

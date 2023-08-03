@@ -365,12 +365,13 @@ private:
 TcpServer::TcpServer(std::string const &name, 
     std::string const &address, 
     int port, 
-    int max_clients_num) : 
+    std::size_t max_clients_num) : 
     uv::TcpServer(uv::Loop::Type::New),     
     address_(address), 
     port_(port),
     name_(name),     
-    max_clients_num_(max_clients_num)
+    max_clients_num_(max_clients_num),
+    receive_callback_(nullptr)
 {
     /// 设置对象数据？
     //uv_handle_set_data((uv_handle_t*)&server_, this);
@@ -415,8 +416,13 @@ std::string const & TcpServer::brief()
 }
 
 
-
-bool TcpServer::start()
+/**
+ * @brief 启动TCP服务，开始监听指定端口
+ * 
+ * @param callbacke simple callback mode, rx queue will be disabled 
+ * @return bool
+ */
+bool TcpServer::start(ReceiveCallback callback)
 {
     if (started_)
     {
@@ -442,6 +448,12 @@ bool TcpServer::start()
                 slog::error("{}: listen callback return unexpected error: {}", self->name(), uv_strerror(status));
                 return ;
             }
+
+            // 是否超过最多连接数了
+            if ((self->max_clients_num_ > 0) && (self->connections_.size() >= self->max_clients_num_)){
+                slog::warning("{}: connection reach max limited, ignore connection request", self->name());
+                return;
+            }
             
             // 建立一个新连接
             self->setup_connection();      
@@ -454,6 +466,11 @@ bool TcpServer::start()
     }
 
     slog::info("{}: listen on {} success", name_, brief_);
+
+    // set rx callback 
+    receive_callback_ = callback;
+
+    slog::info("{}: callback {}, receive queue will be {}", name_, receive_callback_ ? "enabled" : "disabled", receive_callback_ ? "disabled" : "enabled");
 
     // 创建一个线程，运行uv loop
     thread_ = std::thread(&TcpServer::loop_thread, this);
@@ -669,16 +686,26 @@ void TcpServer::setup_connection()
             }
             else if (event == TcpConnection::Event::ReadAvailable) 
             {
-                // 创建一个队列 
-                DataFrame frame(connection.get_host(), data, size);
-                slog::trace("{}: queue rx frame-{}(size:{}, from:{}) pending:{}", name_, frame.id(), size, connection.brief(), rx_frames_.size());
 
-                // 入队列 
-                std::lock_guard<std::mutex> lock(rx_mutex_);
-                rx_frames_.emplace(std::move(frame));
+                if (receive_callback_)
+                {
+                    auto host = connection.get_host();
+                    // call back 
+                    receive_callback_(host, data, size);
+                }
+                else 
+                {
+                    // 创建一个队列 
+                    DataFrame frame(connection.get_host(), data, size);
+                    slog::trace("{}: queue rx frame-{}(size:{}, from:{}) pending:{}", name_, frame.id(), size, connection.brief(), rx_frames_.size());
 
-                // 通知外部线程读取数据
-                rx_notify_.notify();
+                    // 入队列 
+                    std::lock_guard<std::mutex> lock(rx_mutex_);
+                    rx_frames_.emplace(std::move(frame));
+
+                    // 通知外部线程读取数据
+                    rx_notify_.notify();
+                }
             }
         }
     );
@@ -790,14 +817,14 @@ DataFrame TcpServer::receive()
  * @return true 发送成功
  * @return false 发送失败
  */
-bool TcpServer::send(Host const & host, uint8_t const * const data, int size)
+bool TcpServer::send(Host const & host, void const * const data, int size)
 {
     if (data == nullptr || size <= 0)
     {
         return false;
     }
 
-    DataFrame frame(host, data, size);
+    DataFrame frame(host, (uint8_t const *)data, size);
 
     slog::trace("{}: queue tx frame-{}(size:{}, to:{}:{}) pending:{}", name_, frame.id(), size, host.address, host.port, tx_frames_.size());
 
