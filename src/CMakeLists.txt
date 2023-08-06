@@ -1,5 +1,5 @@
 option(SLOG_SINK_ROS "logger for ros" OFF)
-option(SLOG_SINK_SPDLOG "logger with spdlog" ON)
+option(SLOG_SINK_SPDLOG "logger with spdlog" OFF)
 
 if (WS_ROS)
 set(SLOG_SINK_ROS ON)

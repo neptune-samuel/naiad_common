@@ -53,11 +53,9 @@ endif()
 find_package(libuv REQUIRED PATHS ${WS_INSTALL_PREFIX})
 find_package(spdlog REQUIRED PATHS ${WS_INSTALL_PREFIX})
 find_package(fmt REQUIRED PATHS ${WS_INSTALL_PREFIX})
-find_package(docopt REQUIRED PATHS ${WS_INSTALL_PREFIX})
 
 message(STATUS "=> found spdlog : ${spdlog_VERSION}")
 message(STATUS "=> found libuv  : ${libuv_VERSION}")
-message(STATUS "=> found docopt : ${docopt_VERSION}")
 message(STATUS "=> found fmt    : ${fmt_VERSION}")
 
 ## set default include folder

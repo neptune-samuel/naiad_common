@@ -14,7 +14,12 @@ if (ROS_DISTRO STREQUAL "foxy")
 set(ROS_FOXY  ON)
 set(WS_ROS ON)
 # 设置ROS根目录
+if (CMAKE_CROSSCOMPILING)
+set(ROS_ROOT_DIR /opt/nano/rootfs/opt/ros/${ROS_DISTRO})
+add_compile_options(-DNANO_CROSS_BUILD)
+else()
 set(ROS_ROOT_DIR /opt/ros/${ROS_DISTRO})
+endif()
 endif()
 
 ## 在编译目录可以设定根目录，这里可以不用设置
@@ -38,3 +43,9 @@ message(STATUS "=> WS_INSTALL_PREFIX=${WS_INSTALL_PREFIX}")
 
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
+
+if (CMAKE_CROSSCOMPILING)
+set(CMAKE_FIND_ROOT_PATH "${CMAKE_FIND_ROOT_PATH}" "${WS_INSTALL_PREFIX}")
+message(STATUS "=> CMAKE_FIND_ROOT_PATH=${CMAKE_FIND_ROOT_PATH}")
+endif()
+
