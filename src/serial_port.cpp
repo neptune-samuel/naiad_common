@@ -26,7 +26,7 @@
 #include <common/serial_port.h>
 #include <common/sys_time.h>
 
-#define ASYNC_READ_WITH_EPOLL  0
+#define ASYNC_READ_WITH_EPOLL  1
 
 
 namespace naiad 
